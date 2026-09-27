@@ -19,6 +19,9 @@ import {
 } from 'lucide-react';
 import { DisplayMode, ThemeMode } from '../types';
 import { ActionMenu } from './ActionMenu';
+import { User } from 'firebase/auth';
+import { SyncStatus } from '../services/cloudSync';
+import { LogIn, User as UserIcon, Cloud, CloudOff, RefreshCw } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: 'all' | 'tasks' | 'projects' | 'links' | 'notes';
@@ -38,6 +41,10 @@ interface HeaderProps {
   isInstallable?: boolean;
   onInstallApp?: () => void;
   isInstalled?: boolean;
+  user: User | null;
+  syncStatus: SyncStatus;
+  onOpenAuthModal: () => void;
+  onOpenUserProfile: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -57,7 +64,11 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleFullscreen,
   isInstallable = false,
   onInstallApp,
-  isInstalled = false
+  isInstalled = false,
+  user,
+  syncStatus,
+  onOpenAuthModal,
+  onOpenUserProfile
 }) => {
   const [time, setTime] = useState<string>('');
   const [dateStr, setDateStr] = useState<string>('');
@@ -287,6 +298,40 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Exporter</span>
             </button>
 
+            {/* Cloud User Profile / Auth Button */}
+            {user ? (
+              <button
+                onClick={onOpenUserProfile}
+                title={`Connecté avec : ${user.email} (${syncStatus === 'synced' ? '✓ Synchronisé' : syncStatus === 'syncing' ? 'Synchronisation...' : syncStatus === 'offline' ? 'Hors ligne' : 'Erreur'})`}
+                aria-label="Mon compte"
+                className="min-w-[40px] min-h-[40px] px-2.5 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-800 flex items-center justify-center gap-1.5 shrink-0 active:scale-95 transition-all cursor-pointer"
+              >
+                <div className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0 shadow-xs">
+                  {(user.displayName?.[0] || user.email?.[0] || 'U').toUpperCase()}
+                </div>
+                <span className="hidden md:inline max-w-[95px] truncate text-left font-medium">
+                  {user.displayName || user.email?.split('@')[0]}
+                </span>
+                <span 
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    syncStatus === 'synced' ? 'bg-emerald-500' : 
+                    syncStatus === 'syncing' ? 'bg-indigo-500 animate-pulse' : 
+                    syncStatus === 'offline' ? 'bg-amber-500' : 'bg-red-500'
+                  }`}
+                />
+              </button>
+            ) : (
+              <button
+                onClick={onOpenAuthModal}
+                title="Se connecter pour synchroniser vos données sur tous vos appareils"
+                aria-label="Se connecter"
+                className="min-w-[40px] min-h-[40px] px-2.5 py-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 rounded-xl border border-indigo-200 dark:border-indigo-800/80 flex items-center justify-center gap-1.5 shrink-0 active:scale-95 transition-all cursor-pointer"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Connexion</span>
+              </button>
+            )}
+
             {/* Mobile / Compact « Plus » Options Menu */}
             <div className="sm:hidden">
               <ActionMenu
@@ -294,10 +339,15 @@ export const Header: React.FC<HeaderProps> = ({
                 subtitle="Gestion globale & Préférences"
                 items={[
                   {
+                    label: user ? `Mon compte (${user.email})` : 'Se connecter / Créer un compte',
+                    icon: user ? <UserIcon className="w-4 h-4 text-indigo-500" /> : <LogIn className="w-4 h-4 text-indigo-500" />,
+                    onClick: user ? onOpenUserProfile : onOpenAuthModal,
+                    variant: 'primary'
+                  },
+                  {
                     label: 'Importer des fichiers (CSV / JSON)',
                     icon: <Upload className="w-4 h-4 text-indigo-500" />,
-                    onClick: onOpenImportModal,
-                    variant: 'primary'
+                    onClick: onOpenImportModal
                   },
                   {
                     label: 'Exporter & Sauvegarder',

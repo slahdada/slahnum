@@ -1,0 +1,103 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Profil utilisateur et préférences",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "Tâche personnelle de l'utilisateur",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "priority": { "type": "string" },
+        "isToday": { "type": "boolean" },
+        "dueDate": { "type": "string" },
+        "projectId": { "type": "string" },
+        "description": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "completedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "completed", "priority", "createdAt"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Projet personnel de l'utilisateur",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "status": { "type": "string" },
+        "progress": { "type": "number" },
+        "dueDate": { "type": "string" },
+        "tags": { "type": "array" }
+      },
+      "required": ["id", "title", "category", "status", "progress"]
+    },
+    "ResourceLink": {
+      "title": "ResourceLink",
+      "description": "Lien et favori personnel",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "url": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "isFavorite": { "type": "boolean" },
+        "clicks": { "type": "number" }
+      },
+      "required": ["id", "title", "url", "category"]
+    },
+    "QuickNote": {
+      "title": "QuickNote",
+      "description": "Note rapide personnelle",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "isPinned": { "type": "boolean" },
+        "color": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "content"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Profil du compte utilisateur"
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Collection des tâches personnelles"
+    },
+    "/users/{userId}/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Collection des projets personnels"
+    },
+    "/users/{userId}/links/{linkId}": {
+      "schema": "ResourceLink",
+      "description": "Collection des liens favoris"
+    },
+    "/users/{userId}/notes/{noteId}": {
+      "schema": "QuickNote",
+      "description": "Collection des notes personnelles"
+    }
+  }
+}

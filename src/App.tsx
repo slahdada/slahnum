@@ -16,7 +16,7 @@ import {
   ThemeMode,
   ToastNotification
 } from './types';
-import { loadStoredData, saveStoredData, initialData } from './utils/storage';
+import { loadStoredData, saveStoredData, initialData, exportDataAsJson } from './utils/storage';
 import { Header } from './components/Header';
 import { DashboardStats } from './components/DashboardStats';
 import { TasksSection } from './components/TasksSection';
@@ -33,9 +33,28 @@ import { EditTaskModal } from './components/EditTaskModal';
 import { EditProjectModal } from './components/EditProjectModal';
 import { EditLinkModal } from './components/EditLinkModal';
 import { EditNoteModal } from './components/EditNoteModal';
+import { AuthModal } from './components/AuthModal';
+import { UserProfileMenu } from './components/UserProfileMenu';
+import { DataMigrationModal } from './components/DataMigrationModal';
 import { downloadDataUrl } from './utils/fileHelpers';
 import { useFullscreen } from './hooks/useFullscreen';
 import { usePWAInstall } from './hooks/usePWAInstall';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from './services/firebase';
+import { 
+  SyncStatus, 
+  subscribeToUserCloudData, 
+  saveTaskToCloud, 
+  deleteTaskFromCloud, 
+  saveProjectToCloud, 
+  deleteProjectFromCloud, 
+  saveLinkToCloud, 
+  deleteLinkFromCloud, 
+  saveNoteToCloud, 
+  deleteNoteFromCloud,
+  uploadLocalDataToCloud,
+  checkUserCloudDataExists
+} from './services/cloudSync';
 
 export default function App() {
   const [data, setData] = useState<AppData>(() => loadStoredData());
@@ -54,6 +73,90 @@ export default function App() {
   const [editingProjectDirect, setEditingProjectDirect] = useState<Project | null>(null);
   const [editingLinkDirect, setEditingLinkDirect] = useState<ResourceLink | null>(null);
   const [editingNoteDirect, setEditingNoteDirect] = useState<QuickNote | null>(null);
+
+  // User Authentication & Cloud Sync State
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
+  const [isMigrationModalOpen, setIsMigrationModalOpen] = useState(false);
+
+  // Listen to Firebase Auth state
+  useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
+      setCurrentUser(user);
+      if (user) {
+        // Check for local data migration if this user hasn't been prompted yet
+        const localData = loadStoredData();
+        const hasLocalData = 
+          localData.tasks.length > 0 || 
+          localData.projects.length > 0 || 
+          localData.links.length > 0 || 
+          localData.notes.length > 0;
+
+        const migrationKey = `espace_num_migrated_${user.uid}`;
+        const alreadyMigrated = localStorage.getItem(migrationKey);
+
+        if (hasLocalData && !alreadyMigrated) {
+          const hasCloudData = await checkUserCloudDataExists(user.uid);
+          if (!hasCloudData) {
+            setIsMigrationModalOpen(true);
+          }
+        }
+      } else {
+        // When logged out, reset to local storage
+        setData(loadStoredData());
+        setSyncStatus('synced');
+      }
+    });
+
+    return () => unsubAuth();
+  }, []);
+
+  // Real-time Firestore sync when user is authenticated
+  useEffect(() => {
+    if (!currentUser) return;
+
+    setSyncStatus('syncing');
+
+    const unsubCloud = subscribeToUserCloudData(
+      currentUser.uid,
+      (cloudData) => {
+        setData(prev => ({
+          tasks: cloudData.tasks !== undefined ? cloudData.tasks : prev.tasks,
+          projects: cloudData.projects !== undefined ? cloudData.projects : prev.projects,
+          links: cloudData.links !== undefined ? cloudData.links : prev.links,
+          notes: cloudData.notes !== undefined ? cloudData.notes : prev.notes,
+        }));
+      },
+      (status) => {
+        setSyncStatus(status);
+      }
+    );
+
+    return () => unsubCloud();
+  }, [currentUser]);
+
+  // Online / Offline listener
+  useEffect(() => {
+    const handleOnline = () => {
+      if (currentUser) {
+        setSyncStatus('synced');
+        handleNotify('Connexion rétablie · Données synchronisées', 'success');
+      }
+    };
+    const handleOffline = () => {
+      setSyncStatus('offline');
+      handleNotify('Mode hors ligne actif · Données consultables et modifiables', 'warning');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [currentUser]);
 
   // Global search keyboard shortcuts (Ctrl+K, Cmd+K, "/")
   useEffect(() => {
@@ -119,6 +222,18 @@ export default function App() {
   // Apply imported data safely
   const handleApplyImport = (updatedData: AppData) => {
     setData(updatedData);
+    if (currentUser) {
+      setSyncStatus('syncing');
+      uploadLocalDataToCloud(currentUser.uid, updatedData)
+        .then(() => {
+          setSyncStatus('synced');
+          handleNotify('Données importées et synchronisées dans le cloud', 'success');
+        })
+        .catch((err) => {
+          console.error(err);
+          handleNotify('Données importées localement (erreur sync cloud)', 'warning');
+        });
+    }
   };
 
   // Apply theme to document element
@@ -183,6 +298,9 @@ export default function App() {
       ...prev,
       tasks: [newTask, ...prev.tasks]
     }));
+    if (currentUser) {
+      saveTaskToCloud(currentUser.uid, newTask).catch(console.error);
+    }
   };
 
   const handleUpdateTask = (updatedTask: Task) => {
@@ -190,21 +308,29 @@ export default function App() {
       ...prev,
       tasks: prev.tasks.map(t => t.id === updatedTask.id ? updatedTask : t)
     }));
+    if (currentUser) {
+      saveTaskToCloud(currentUser.uid, updatedTask).catch(console.error);
+    }
   };
 
   const handleToggleTask = (id: string) => {
+    let toggled: Task | undefined;
     setData(prev => ({
       ...prev,
       tasks: prev.tasks.map(t => {
         if (t.id !== id) return t;
         const nextCompleted = !t.completed;
-        return {
+        toggled = {
           ...t,
           completed: nextCompleted,
           completedAt: nextCompleted ? (t.completedAt || new Date().toISOString()) : undefined
         };
+        return toggled;
       })
     }));
+    if (currentUser && toggled) {
+      saveTaskToCloud(currentUser.uid, toggled).catch(console.error);
+    }
   };
 
   const handleDeleteTask = (id: string) => {
@@ -212,13 +338,22 @@ export default function App() {
       ...prev,
       tasks: prev.tasks.filter(t => t.id !== id)
     }));
+    if (currentUser) {
+      deleteTaskFromCloud(currentUser.uid, id).catch(console.error);
+    }
   };
 
   const handleClearCompletedTasks = () => {
+    const completedTasks = data.tasks.filter(t => t.completed);
     setData(prev => ({
       ...prev,
       tasks: prev.tasks.filter(t => !t.completed)
     }));
+    if (currentUser) {
+      completedTasks.forEach(t => {
+        deleteTaskFromCloud(currentUser.uid, t.id).catch(console.error);
+      });
+    }
   };
 
   // Projects actions
@@ -232,6 +367,9 @@ export default function App() {
       ...prev,
       projects: [proj, ...prev.projects]
     }));
+    if (currentUser) {
+      saveProjectToCloud(currentUser.uid, proj).catch(console.error);
+    }
   };
 
   const handleUpdateProject = (updatedProj: Project) => {
@@ -239,29 +377,42 @@ export default function App() {
       ...prev,
       projects: prev.projects.map(p => p.id === updatedProj.id ? updatedProj : p)
     }));
+    if (currentUser) {
+      saveProjectToCloud(currentUser.uid, updatedProj).catch(console.error);
+    }
   };
 
   const handleUpdateProjectProgress = (id: string, progress: number) => {
+    let updatedProj: Project | undefined;
     setData(prev => ({
       ...prev,
       projects: prev.projects.map(p => {
         if (p.id !== id) return p;
         const clamped = Math.max(0, Math.min(100, progress));
         const status: ProjectStatus = clamped === 100 ? 'termine' : (p.status === 'termine' ? 'en_cours' : p.status);
-        return { ...p, progress: clamped, status };
+        updatedProj = { ...p, progress: clamped, status };
+        return updatedProj;
       })
     }));
+    if (currentUser && updatedProj) {
+      saveProjectToCloud(currentUser.uid, updatedProj).catch(console.error);
+    }
   };
 
   const handleUpdateProjectStatus = (id: string, status: ProjectStatus) => {
+    let updatedProj: Project | undefined;
     setData(prev => ({
       ...prev,
       projects: prev.projects.map(p => {
         if (p.id !== id) return p;
         const progress = status === 'termine' ? 100 : (p.progress === 100 ? 50 : p.progress);
-        return { ...p, status, progress };
+        updatedProj = { ...p, status, progress };
+        return updatedProj;
       })
     }));
+    if (currentUser && updatedProj) {
+      saveProjectToCloud(currentUser.uid, updatedProj).catch(console.error);
+    }
   };
 
   const handleDeleteProject = (id: string) => {
@@ -270,6 +421,9 @@ export default function App() {
       projects: prev.projects.filter(p => p.id !== id),
       tasks: prev.tasks.map(t => t.projectId === id ? { ...t, projectId: undefined } : t)
     }));
+    if (currentUser) {
+      deleteProjectFromCloud(currentUser.uid, id).catch(console.error);
+    }
   };
 
   // Links actions
@@ -284,6 +438,9 @@ export default function App() {
       ...prev,
       links: [link, ...prev.links]
     }));
+    if (currentUser) {
+      saveLinkToCloud(currentUser.uid, link).catch(console.error);
+    }
   };
 
   const handleUpdateLink = (updatedLink: ResourceLink) => {
@@ -291,20 +448,39 @@ export default function App() {
       ...prev,
       links: prev.links.map(l => l.id === updatedLink.id ? updatedLink : l)
     }));
+    if (currentUser) {
+      saveLinkToCloud(currentUser.uid, updatedLink).catch(console.error);
+    }
   };
 
   const handleToggleFavoriteLink = (id: string) => {
+    let updatedLink: ResourceLink | undefined;
     setData(prev => ({
       ...prev,
-      links: prev.links.map(l => l.id === id ? { ...l, isFavorite: !l.isFavorite } : l)
+      links: prev.links.map(l => {
+        if (l.id !== id) return l;
+        updatedLink = { ...l, isFavorite: !l.isFavorite };
+        return updatedLink;
+      })
     }));
+    if (currentUser && updatedLink) {
+      saveLinkToCloud(currentUser.uid, updatedLink).catch(console.error);
+    }
   };
 
   const handleIncrementLinkClicks = (id: string) => {
+    let updatedLink: ResourceLink | undefined;
     setData(prev => ({
       ...prev,
-      links: prev.links.map(l => l.id === id ? { ...l, clicks: (l.clicks || 0) + 1 } : l)
+      links: prev.links.map(l => {
+        if (l.id !== id) return l;
+        updatedLink = { ...l, clicks: (l.clicks || 0) + 1 };
+        return updatedLink;
+      })
     }));
+    if (currentUser && updatedLink) {
+      saveLinkToCloud(currentUser.uid, updatedLink).catch(console.error);
+    }
   };
 
   const handleDeleteLink = (id: string) => {
@@ -312,6 +488,9 @@ export default function App() {
       ...prev,
       links: prev.links.filter(l => l.id !== id)
     }));
+    if (currentUser) {
+      deleteLinkFromCloud(currentUser.uid, id).catch(console.error);
+    }
   };
 
   // Notes actions
@@ -327,13 +506,24 @@ export default function App() {
       ...prev,
       notes: [note, ...prev.notes]
     }));
+    if (currentUser) {
+      saveNoteToCloud(currentUser.uid, note).catch(console.error);
+    }
   };
 
   const handleUpdateNote = (id: string, updates: Partial<QuickNote>) => {
+    let updatedNote: QuickNote | undefined;
     setData(prev => ({
       ...prev,
-      notes: prev.notes.map(n => n.id === id ? { ...n, ...updates } : n)
+      notes: prev.notes.map(n => {
+        if (n.id !== id) return n;
+        updatedNote = { ...n, ...updates };
+        return updatedNote;
+      })
     }));
+    if (currentUser && updatedNote) {
+      saveNoteToCloud(currentUser.uid, updatedNote).catch(console.error);
+    }
   };
 
   const handleDeleteNote = (id: string) => {
@@ -341,13 +531,24 @@ export default function App() {
       ...prev,
       notes: prev.notes.filter(n => n.id !== id)
     }));
+    if (currentUser) {
+      deleteNoteFromCloud(currentUser.uid, id).catch(console.error);
+    }
   };
 
   const handleTogglePinNote = (id: string) => {
+    let updatedNote: QuickNote | undefined;
     setData(prev => ({
       ...prev,
-      notes: prev.notes.map(n => n.id === id ? { ...n, isPinned: !n.isPinned } : n)
+      notes: prev.notes.map(n => {
+        if (n.id !== id) return n;
+        updatedNote = { ...n, isPinned: !n.isPinned };
+        return updatedNote;
+      })
     }));
+    if (currentUser && updatedNote) {
+      saveNoteToCloud(currentUser.uid, updatedNote).catch(console.error);
+    }
   };
 
   // Reset Data
@@ -383,6 +584,10 @@ export default function App() {
         isInstallable={isInstallable || isIOS}
         onInstallApp={handleInstallClick}
         isInstalled={isInstalled}
+        user={currentUser}
+        syncStatus={syncStatus}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onOpenUserProfile={() => setIsUserProfileOpen(true)}
       />
 
       {/* Main Container - Optimized for mobile width with adequate bottom spacing for Thumb Nav */}
@@ -742,6 +947,53 @@ export default function App() {
         }}
         onNotify={handleNotify}
       />
+
+      {/* User Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onNotify={handleNotify}
+      />
+
+      {/* User Profile & Cloud Sync Status Modal */}
+      {currentUser && (
+        <UserProfileMenu
+          isOpen={isUserProfileOpen}
+          onClose={() => setIsUserProfileOpen(false)}
+          user={currentUser}
+          syncStatus={syncStatus}
+          onManualSync={() => {
+            setSyncStatus('syncing');
+            setTimeout(() => {
+              setSyncStatus(navigator.onLine ? 'synced' : 'offline');
+              handleNotify('Synchronisation actualisée', 'success');
+            }, 500);
+          }}
+          onExportBackup={() => {
+            exportDataAsJson(data);
+            handleNotify('Sauvegarde JSON générée et téléchargée', 'success');
+          }}
+          onNotify={handleNotify}
+        />
+      )}
+
+      {/* Data Migration Prompt Modal */}
+      {currentUser && (
+        <DataMigrationModal
+          isOpen={isMigrationModalOpen}
+          onClose={() => {
+            setIsMigrationModalOpen(false);
+            localStorage.setItem(`espace_num_migrated_${currentUser.uid}`, 'true');
+          }}
+          userId={currentUser.uid}
+          localData={data}
+          onMigrationComplete={() => {
+            localStorage.setItem(`espace_num_migrated_${currentUser.uid}`, 'true');
+            setIsMigrationModalOpen(false);
+          }}
+          onNotify={handleNotify}
+        />
+      )}
 
       {/* iOS Installation Guide Popup */}
       {showIOSGuide && (
