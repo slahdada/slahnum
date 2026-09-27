@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   Layers, 
-  CheckSquare, 
+  BookUser, 
   Briefcase, 
   Bookmark, 
   StickyNote,
@@ -9,9 +9,9 @@ import {
 } from 'lucide-react';
 
 interface MobileBottomNavProps {
-  activeTab: 'all' | 'tasks' | 'projects' | 'links' | 'notes';
-  setActiveTab: (tab: 'all' | 'tasks' | 'projects' | 'links' | 'notes') => void;
-  pendingTasksCount: number;
+  activeTab: 'all' | 'addressBook' | 'projects' | 'links' | 'notes';
+  setActiveTab: (tab: 'all' | 'addressBook' | 'projects' | 'links' | 'notes') => void;
+  addressBookCount?: number;
   activeProjectsCount: number;
   onQuickAdd: () => void;
 }
@@ -19,7 +19,7 @@ interface MobileBottomNavProps {
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   activeTab,
   setActiveTab,
-  pendingTasksCount,
+  addressBookCount = 0,
   activeProjectsCount,
   onQuickAdd
 }) => {
@@ -31,10 +31,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       badge: null
     },
     {
-      id: 'tasks' as const,
-      label: 'Tâches',
-      icon: CheckSquare,
-      badge: pendingTasksCount > 0 ? pendingTasksCount : null
+      id: 'addressBook' as const,
+      label: 'Carnet',
+      icon: BookUser,
+      badge: addressBookCount > 0 ? addressBookCount : null
     },
     {
       id: 'projects' as const,

@@ -1,6 +1,6 @@
 {
   "name": "Espace Num",
-  "description": "Tableau de bord personnel pour la gestion des activités numériques : suivi de projets, tâches prioritaires, liens utiles et bloc-notes rapide avec sauvegarde locale.",
+  "description": "Tableau de bord personnel pour la gestion des activités numériques : carnet d’adresses avec synchronisation cloud, suivi de projets, liens utiles et bloc-notes rapide.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

@@ -10,6 +10,40 @@ const getRelativeIsoDate = (daysAgo: number, hour = 14) => {
 };
 
 export const initialData: AppData = {
+  addressBook: [
+    {
+      id: 'addr-1',
+      name: 'Dr. Martin - Cabinet Médical Pasteur',
+      key: 'MED-042',
+      nature: 'Santé / Consultation',
+      notification: 'Rappel SMS 48h avant',
+      createdAt: getRelativeIsoDate(2, 9)
+    },
+    {
+      id: 'addr-2',
+      name: 'Fournisseur Matériel IT & Réseau',
+      key: 'SRV-890',
+      nature: 'Informatique / Équipement',
+      notification: 'Alerte livraison par e-mail',
+      createdAt: getRelativeIsoDate(1, 14)
+    },
+    {
+      id: 'addr-3',
+      name: 'Service Comptabilité & Facturation Centrale',
+      key: 'COMPTA-01',
+      nature: 'Gestion / Finance',
+      notification: 'Notification mensuelle le 28',
+      createdAt: getRelativeIsoDate(0, 10)
+    },
+    {
+      id: 'addr-4',
+      name: 'Contact Logistique & Transport Express',
+      key: 'LOG-77',
+      nature: 'Transport / Fret',
+      notification: 'Suivi temps réel colis',
+      createdAt: getRelativeIsoDate(0, 11)
+    }
+  ],
   projects: [
     {
       id: 'proj-1',
@@ -328,12 +362,21 @@ export function loadStoredData(): AppData {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return initialData;
     const parsed = JSON.parse(raw);
-    if (parsed && Array.isArray(parsed.tasks) && Array.isArray(parsed.projects)) {
+    if (parsed) {
+      const addressBook = Array.isArray(parsed.addressBook) && parsed.addressBook.length > 0 
+        ? parsed.addressBook 
+        : (Array.isArray(parsed.addressBook) ? [] : initialData.addressBook);
+      const tasks = Array.isArray(parsed.tasks) ? parsed.tasks : (initialData.tasks || []);
+      const projects = Array.isArray(parsed.projects) ? parsed.projects : [];
+      const links = Array.isArray(parsed.links) ? parsed.links : [];
+      const notes = Array.isArray(parsed.notes) ? parsed.notes : [];
+
       return {
-        tasks: parsed.tasks ?? [],
-        projects: parsed.projects ?? [],
-        links: parsed.links ?? [],
-        notes: parsed.notes ?? []
+        addressBook,
+        tasks,
+        projects,
+        links,
+        notes
       };
     }
     return initialData;
@@ -422,9 +465,9 @@ export function generateStandaloneHtml(data: AppData): string {
     <!-- Cartes Récapitulatives -->
     <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       <div class="bg-zinc-900/80 border border-zinc-800/90 rounded-xl p-4">
-        <p class="text-xs font-medium text-zinc-400">Tâches du jour</p>
-        <p id="stat-tasks" class="text-2xl font-semibold text-white mt-1 font-mono tabular-nums">0 / 0</p>
-        <p class="text-xs text-zinc-500 mt-1">Accomplies aujourd'hui</p>
+        <p class="text-xs font-medium text-zinc-400">Carnet d’adresses</p>
+        <p id="stat-address" class="text-2xl font-semibold text-white mt-1 font-mono tabular-nums">0</p>
+        <p class="text-xs text-zinc-500 mt-1">Entrées synchronisées</p>
       </div>
       <div class="bg-zinc-900/80 border border-zinc-800/90 rounded-xl p-4">
         <p class="text-xs font-medium text-zinc-400">Projets en cours</p>
@@ -445,33 +488,18 @@ export function generateStandaloneHtml(data: AppData): string {
 
     <!-- Grille Principale 2 Colonnes -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <!-- Colonne Gauche: Tâches et Projets (7 colonnes) -->
+      <!-- Colonne Gauche: Carnet d'adresses et Projets (7 colonnes) -->
       <div class="lg:col-span-7 space-y-6">
-        <!-- Tâches -->
+        <!-- Carnet d'adresses -->
         <div class="bg-zinc-900/80 border border-zinc-800/90 rounded-xl p-5">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="text-base font-semibold text-white">Tâches Prioritaires</h2>
-            <div class="flex items-center gap-1 text-xs">
-              <button onclick="setTaskFilter('all')" id="btn-filter-all" class="px-2.5 py-1 rounded-md bg-zinc-800 text-white font-medium">Toutes</button>
-              <button onclick="setTaskFilter('today')" id="btn-filter-today" class="px-2.5 py-1 rounded-md text-zinc-400 hover:text-white">Aujourd'hui</button>
-              <button onclick="setTaskFilter('high')" id="btn-filter-high" class="px-2.5 py-1 rounded-md text-zinc-400 hover:text-white">Urgentes</button>
-            </div>
-          </div>
-          <!-- Ajout tâche -->
-          <div class="flex gap-2 mb-4">
-            <input id="new-task-input" type="text" placeholder="Nouvelle tâche prioritaire (Appuyer sur Entrée)..." 
-              class="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
-              onkeydown="if(event.key==='Enter') addTask()">
-            <select id="new-task-priority" class="bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-2 text-xs text-zinc-300 focus:outline-none focus:border-indigo-500">
-              <option value="haute">Haute</option>
-              <option value="moyenne" selected>Moyenne</option>
-              <option value="basse">Basse</option>
-            </select>
-            <button onclick="addTask()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-lg text-xs font-medium transition-colors">
-              Ajouter
+            <h2 class="text-base font-semibold text-white">Carnet d’adresses</h2>
+            <button onclick="promptNewAddressEntry()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
+              + Ajouter
             </button>
           </div>
-          <div id="tasks-list" class="space-y-2"></div>
+          <!-- Tableau Desktop & Cartes Mobile -->
+          <div id="address-container"></div>
         </div>
 
         <!-- Projets -->
@@ -542,93 +570,103 @@ export function generateStandaloneHtml(data: AppData): string {
 
     function renderAll() {
       renderStats();
-      renderTasks();
+      renderAddressBook();
       renderProjects();
       renderLinks();
       renderNotes();
     }
 
     function renderStats() {
-      const completedTasks = appData.tasks.filter(t => t.completed).length;
-      document.getElementById('stat-tasks').textContent = completedTasks + ' / ' + appData.tasks.length;
+      const addressCount = (appData.addressBook || []).length;
+      document.getElementById('stat-address').textContent = addressCount;
       document.getElementById('stat-projects').textContent = appData.projects.filter(p => p.status === 'en_cours').length;
       document.getElementById('stat-links').textContent = appData.links.length;
       document.getElementById('stat-notes').textContent = appData.notes.length;
     }
 
-    function setTaskFilter(filter) {
-      taskFilter = filter;
-      ['all', 'today', 'high'].forEach(f => {
-        const btn = document.getElementById('btn-filter-' + f);
-        if (f === filter) {
-          btn.className = 'px-2.5 py-1 rounded-md bg-zinc-800 text-white font-medium';
-        } else {
-          btn.className = 'px-2.5 py-1 rounded-md text-zinc-400 hover:text-white';
-        }
-      });
-      renderTasks();
-    }
+    function renderAddressBook() {
+      const container = document.getElementById('address-container');
+      const list = appData.addressBook || [];
 
-    function renderTasks() {
-      const list = document.getElementById('tasks-list');
-      let filtered = appData.tasks;
-      if (taskFilter === 'today') filtered = filtered.filter(t => t.isToday);
-      if (taskFilter === 'high') filtered = filtered.filter(t => t.priority === 'haute');
-
-      if (filtered.length === 0) {
-        list.innerHTML = '<p class="text-xs text-zinc-500 py-4 text-center">Aucune tâche dans cette vue.</p>';
+      if (list.length === 0) {
+        container.innerHTML = '<p class="text-xs text-zinc-500 py-6 text-center">Aucune entrée dans le carnet d’adresses. Cliquez sur "+ Ajouter" pour en créer une.</p>';
         return;
       }
 
-      list.innerHTML = filtered.map(t => {
-        const badgeColor = t.priority === 'haute' ? 'text-red-400' : (t.priority === 'moyenne' ? 'text-amber-400' : 'text-zinc-400');
-        const priorityLabel = t.priority === 'haute' ? 'Haute' : (t.priority === 'moyenne' ? 'Moyenne' : 'Basse');
-        return \`
-          <div class="flex items-center justify-between p-2.5 bg-zinc-950/60 rounded-lg border border-zinc-800/80 hover:border-zinc-700 transition-colors">
-            <div class="flex items-center gap-3 overflow-hidden">
-              <input type="checkbox" \${t.completed ? 'checked' : ''} onchange="toggleTask('\${t.id}')"
-                class="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-indigo-600 focus:ring-0 cursor-pointer">
-              <span class="text-sm \${t.completed ? 'line-through text-zinc-500' : 'text-zinc-200'} truncate">\${escapeHtml(t.title)}</span>
-            </div>
-            <div class="flex items-center gap-3 shrink-0 text-xs">
-              <span class="\${badgeColor} font-mono">\${priorityLabel}</span>
-              <button onclick="deleteTask('\${t.id}')" class="text-zinc-500 hover:text-red-400 transition-colors">×</button>
-            </div>
-          </div>
-        \`;
-      }).join('');
+      container.innerHTML = \`
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse table-fixed">
+            <thead>
+              <tr class="border-b border-zinc-800 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                <th style="width: 45%" class="py-2 px-3">Nom</th>
+                <th style="width: 20%" class="py-2 px-2">Clé</th>
+                <th style="width: 20%" class="py-2 px-2">Nature</th>
+                <th style="width: 15%" class="py-2 px-2">Notification</th>
+                <th style="width: 50px" class="py-2 px-2 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-800/60 text-zinc-200">
+              \${list.map(e => \\\`
+                <tr class="hover:bg-zinc-800/40 transition-colors">
+                  <td class="py-2.5 px-3 font-medium text-white break-words">\\\${escapeHtml(e.name || '—')}</td>
+                  <td class="py-2.5 px-2 font-mono text-zinc-300 break-words">\\\${escapeHtml(e.key || '—')}</td>
+                  <td class="py-2.5 px-2 break-words">\\\${escapeHtml(e.nature || '—')}</td>
+                  <td class="py-2.5 px-2 text-zinc-400 break-words">\\\${escapeHtml(e.notification || '—')}</td>
+                  <td class="py-2.5 px-2 text-right whitespace-nowrap">
+                    <button onclick="editAddressEntry('\\\\\${e.id}')" class="text-indigo-400 hover:text-indigo-300 px-1 text-xs">✏️</button>
+                    <button onclick="deleteAddressEntry('\\\\\${e.id}')" class="text-zinc-500 hover:text-red-400 px-1 text-xs">🗑️</button>
+                  </td>
+                </tr>
+              \\\`).join('')}
+            </tbody>
+          </table>
+        </div>
+      \`;
     }
 
-    function addTask() {
-      const input = document.getElementById('new-task-input');
-      const prioritySelect = document.getElementById('new-task-priority');
-      const title = input.value.trim();
-      if (!title) return;
+    function promptNewAddressEntry() {
+      const name = prompt('Nom (facultatif) :') || '';
+      const key = prompt('Clé (facultatif) :') || '';
+      const nature = prompt('Nature (facultatif) :') || '';
+      const notification = prompt('Notification (facultatif) :') || '';
 
-      appData.tasks.unshift({
-        id: 't-' + Date.now(),
-        title: title,
-        completed: false,
-        priority: prioritySelect.value,
-        isToday: true,
+      if (!appData.addressBook) appData.addressBook = [];
+      appData.addressBook.unshift({
+        id: 'addr-' + Date.now(),
+        name: name.trim(),
+        key: key.trim(),
+        nature: nature.trim(),
+        notification: notification.trim(),
         createdAt: new Date().toISOString()
       });
-      input.value = '';
       save();
     }
 
-    function toggleTask(id) {
-      const t = appData.tasks.find(x => x.id === id);
-      if (t) {
-        t.completed = !t.completed;
-        t.completedAt = t.completed ? new Date().toISOString() : undefined;
+    function editAddressEntry(id) {
+      const entry = (appData.addressBook || []).find(x => x.id === id);
+      if (!entry) return;
+
+      const name = prompt('Nom :', entry.name || '');
+      if (name === null) return;
+      const key = prompt('Clé :', entry.key || '');
+      if (key === null) return;
+      const nature = prompt('Nature :', entry.nature || '');
+      if (nature === null) return;
+      const notification = prompt('Notification :', entry.notification || '');
+      if (notification === null) return;
+
+      entry.name = name.trim();
+      entry.key = key.trim();
+      entry.nature = nature.trim();
+      entry.notification = notification.trim();
+      save();
+    }
+
+    function deleteAddressEntry(id) {
+      if (confirm('Voulez-vous vraiment supprimer cette entrée ?')) {
+        appData.addressBook = (appData.addressBook || []).filter(x => x.id !== id);
         save();
       }
-    }
-
-    function deleteTask(id) {
-      appData.tasks = appData.tasks.filter(x => x.id !== id);
-      save();
     }
 
     function renderProjects() {

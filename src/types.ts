@@ -13,6 +13,25 @@ export interface AttachedFile {
   uploadedAt: string;
 }
 
+/**
+ * Entrée dans le Carnet d'adresses
+ * Nom (environ 45%), Clé (20%), Nature (20%), Notification (15%)
+ * Tous les champs sont en texte libre et facultatifs
+ */
+export interface AddressEntry {
+  id: string;
+  name: string;          // Nom
+  key: string;           // Clé
+  nature: string;        // Nature
+  notification: string;  // Notification
+  createdAt: string;
+  updatedAt?: string;
+  documents?: AttachedFile[];
+}
+
+/**
+ * Tâche préservée pour la sécurité des données existantes
+ */
 export interface Task {
   id: string;
   title: string;
@@ -68,7 +87,8 @@ export interface QuickNote {
 }
 
 export interface AppData {
-  tasks: Task[];
+  addressBook: AddressEntry[];
+  tasks: Task[]; // Préservé pour conservation et compatibilité des données
   projects: Project[];
   links: ResourceLink[];
   notes: QuickNote[];

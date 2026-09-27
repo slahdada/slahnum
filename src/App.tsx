@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   AppData, 
+  AddressEntry,
   Task, 
   Project, 
   ResourceLink, 
@@ -19,6 +20,7 @@ import {
 import { loadStoredData, saveStoredData, initialData, exportDataAsJson } from './utils/storage';
 import { Header } from './components/Header';
 import { DashboardStats } from './components/DashboardStats';
+import { AddressBookSection } from './components/AddressBookSection';
 import { TasksSection } from './components/TasksSection';
 import { ProjectsSection } from './components/ProjectsSection';
 import { LinksSection } from './components/LinksSection';
@@ -44,6 +46,8 @@ import { auth } from './services/firebase';
 import { 
   SyncStatus, 
   subscribeToUserCloudData, 
+  saveAddressEntryToCloud,
+  deleteAddressEntryFromCloud,
   saveTaskToCloud, 
   deleteTaskFromCloud, 
   saveProjectToCloud, 
@@ -58,11 +62,11 @@ import {
 
 export default function App() {
   const [data, setData] = useState<AppData>(() => loadStoredData());
-  const [activeTab, setActiveTab] = useState<'all' | 'tasks' | 'projects' | 'links' | 'notes'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'addressBook' | 'projects' | 'links' | 'notes'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [importTargetCategory, setImportTargetCategory] = useState<'all' | 'tasks' | 'projects' | 'links' | 'notes'>('all');
+  const [importTargetCategory, setImportTargetCategory] = useState<'all' | 'addressBook' | 'projects' | 'links' | 'notes'>('all');
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
@@ -123,6 +127,7 @@ export default function App() {
       currentUser.uid,
       (cloudData) => {
         setData(prev => ({
+          addressBook: cloudData.addressBook !== undefined ? cloudData.addressBook : prev.addressBook,
           tasks: cloudData.tasks !== undefined ? cloudData.tasks : prev.tasks,
           projects: cloudData.projects !== undefined ? cloudData.projects : prev.projects,
           links: cloudData.links !== undefined ? cloudData.links : prev.links,
@@ -214,9 +219,45 @@ export default function App() {
   };
 
   // Open import modal with specific category focus
-  const handleOpenImport = (category: 'all' | 'tasks' | 'projects' | 'links' | 'notes' = 'all') => {
+  const handleOpenImport = (category: 'all' | 'addressBook' | 'projects' | 'links' | 'notes' = 'all') => {
     setImportTargetCategory(category);
     setIsImportModalOpen(true);
+  };
+
+  // Address Book actions
+  const handleAddAddressEntry = (newEntry: Omit<AddressEntry, 'id' | 'createdAt'>) => {
+    const entry: AddressEntry = {
+      ...newEntry,
+      id: 'addr-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      createdAt: new Date().toISOString()
+    };
+    setData(prev => ({
+      ...prev,
+      addressBook: [entry, ...(prev.addressBook || [])]
+    }));
+    if (currentUser) {
+      saveAddressEntryToCloud(currentUser.uid, entry).catch(console.error);
+    }
+  };
+
+  const handleUpdateAddressEntry = (updatedEntry: AddressEntry) => {
+    setData(prev => ({
+      ...prev,
+      addressBook: (prev.addressBook || []).map(e => e.id === updatedEntry.id ? updatedEntry : e)
+    }));
+    if (currentUser) {
+      saveAddressEntryToCloud(currentUser.uid, updatedEntry).catch(console.error);
+    }
+  };
+
+  const handleDeleteAddressEntry = (id: string) => {
+    setData(prev => ({
+      ...prev,
+      addressBook: (prev.addressBook || []).filter(e => e.id !== id)
+    }));
+    if (currentUser) {
+      deleteAddressEntryFromCloud(currentUser.uid, id).catch(console.error);
+    }
   };
 
   // Apply imported data safely
@@ -602,19 +643,16 @@ export default function App() {
         {/* View Switcher Content */}
         {activeTab === 'all' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
-            {/* Primary Column (7 cols): Tasks & Projects */}
+            {/* Primary Column (7 cols): AddressBook & Projects */}
             <div className="lg:col-span-7 space-y-4 sm:space-y-6">
-              <TasksSection
-                tasks={data.tasks}
-                projects={data.projects}
+              <AddressBookSection
+                entries={data.addressBook || []}
                 searchQuery={searchQuery}
                 displayMode={displayMode}
-                onAddTask={handleAddTask}
-                onUpdateTask={handleUpdateTask}
-                onToggleTask={handleToggleTask}
-                onDeleteTask={handleDeleteTask}
-                onClearCompleted={handleClearCompletedTasks}
-                onImportTasksRequest={() => handleOpenImport('tasks')}
+                onAddEntry={handleAddAddressEntry}
+                onUpdateEntry={handleUpdateAddressEntry}
+                onDeleteEntry={handleDeleteAddressEntry}
+                onOpenImportModal={() => handleOpenImport('addressBook')}
                 onNotify={handleNotify}
               />
 
@@ -662,19 +700,16 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'tasks' && (
+        {activeTab === 'addressBook' && (
           <div className="w-full">
-            <TasksSection
-              tasks={data.tasks}
-              projects={data.projects}
+            <AddressBookSection
+              entries={data.addressBook || []}
               searchQuery={searchQuery}
               displayMode={displayMode}
-              onAddTask={handleAddTask}
-              onUpdateTask={handleUpdateTask}
-              onToggleTask={handleToggleTask}
-              onDeleteTask={handleDeleteTask}
-              onClearCompleted={handleClearCompletedTasks}
-              onImportTasksRequest={() => handleOpenImport('tasks')}
+              onAddEntry={handleAddAddressEntry}
+              onUpdateEntry={handleUpdateAddressEntry}
+              onDeleteEntry={handleDeleteAddressEntry}
+              onOpenImportModal={() => handleOpenImport('addressBook')}
               onNotify={handleNotify}
             />
           </div>
@@ -759,7 +794,7 @@ export default function App() {
       <MobileBottomNav
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        pendingTasksCount={pendingTasksCount}
+        addressBookCount={(data.addressBook || []).length}
         activeProjectsCount={activeProjectsCount}
         onQuickAdd={() => setIsQuickAddOpen(true)}
       />
@@ -789,7 +824,7 @@ export default function App() {
       <QuickAddModal
         isOpen={isQuickAddOpen}
         onClose={() => setIsQuickAddOpen(false)}
-        onAddTask={(title, priority, isToday) => handleAddTask(title, priority, isToday)}
+        onAddAddressEntry={handleAddAddressEntry}
         onAddProject={handleAddProject}
         onAddLink={handleAddLink}
         onAddNote={handleAddNote}
@@ -807,8 +842,10 @@ export default function App() {
         onClose={() => setIsGlobalSearchOpen(false)}
         data={data}
         initialQuery={searchQuery}
+        onSelectAddressEntry={() => {
+          setActiveTab('addressBook');
+        }}
         onSelectTask={(task) => {
-          setActiveTab('tasks');
           setEditingTaskDirect(task);
         }}
         onSelectProject={(project) => {

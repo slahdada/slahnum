@@ -24,8 +24,8 @@ import { SyncStatus } from '../services/cloudSync';
 import { LogIn, User as UserIcon, Cloud, CloudOff, RefreshCw } from 'lucide-react';
 
 interface HeaderProps {
-  activeTab: 'all' | 'tasks' | 'projects' | 'links' | 'notes';
-  setActiveTab: (tab: 'all' | 'tasks' | 'projects' | 'links' | 'notes') => void;
+  activeTab: 'all' | 'addressBook' | 'projects' | 'links' | 'notes';
+  setActiveTab: (tab: 'all' | 'addressBook' | 'projects' | 'links' | 'notes') => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   onOpenGlobalSearch: (initialQuery?: string) => void;
@@ -126,14 +126,14 @@ export const Header: React.FC<HeaderProps> = ({
               Vue Complète
             </button>
             <button
-              onClick={() => setActiveTab('tasks')}
+              onClick={() => setActiveTab('addressBook')}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                activeTab === 'tasks'
+                activeTab === 'addressBook'
                   ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm font-semibold'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
               }`}
             >
-              Tâches
+              Carnet d’adresses
             </button>
             <button
               onClick={() => setActiveTab('projects')}

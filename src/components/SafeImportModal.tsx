@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { AppData, Task, Project, ResourceLink, QuickNote } from '../types';
+import { AppData, AddressEntry, Task, Project, ResourceLink, QuickNote } from '../types';
 import { parseCSV } from '../utils/fileHelpers';
+import * as XLSX from 'xlsx';
 import { 
   Upload, 
   FileSpreadsheet, 
@@ -9,14 +10,15 @@ import {
   CheckCircle2, 
   X, 
   ArrowRight, 
-  FileText 
+  FileText,
+  BookUser
 } from 'lucide-react';
 
 interface SafeImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentData: AppData;
-  targetCategory?: 'all' | 'tasks' | 'projects' | 'links' | 'notes';
+  targetCategory?: 'all' | 'addressBook' | 'tasks' | 'projects' | 'links' | 'notes';
   onApplyImport: (updatedData: AppData) => void;
   onNotify: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -24,6 +26,7 @@ interface SafeImportModalProps {
 interface ParsedSummary {
   fileName: string;
   fileSize: number;
+  addressBook: AddressEntry[];
   tasks: Task[];
   projects: Project[];
   links: ResourceLink[];
@@ -53,27 +56,78 @@ export const SafeImportModal: React.FC<SafeImportModalProps> = ({
     setFile(selectedFile);
     setIsProcessing(true);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const text = e.target?.result as string;
-        const name = selectedFile.name.toLowerCase();
+    const name = selectedFile.name.toLowerCase();
+    const isExcel = name.endsWith('.xlsx') || name.endsWith('.xls');
 
+    const reader = new FileReader();
+
+    const processData = (content: string | ArrayBuffer) => {
+      try {
+        let addressBook: AddressEntry[] = [];
         let tasks: Task[] = [];
         let projects: Project[] = [];
         let links: ResourceLink[] = [];
         let notes: QuickNote[] = [];
 
-        if (name.endsWith('.json')) {
-          const raw = JSON.parse(text);
-          if (raw && (Array.isArray(raw.tasks) || Array.isArray(raw.projects) || Array.isArray(raw.links) || Array.isArray(raw.notes))) {
+        if (isExcel) {
+          const data = new Uint8Array(content as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          
+          // Check if there is an AddressBook sheet
+          const addressSheetName = workbook.SheetNames.find(s => s.toLowerCase().includes('adresse') || s.toLowerCase().includes('carnet')) || workbook.SheetNames[0];
+          const sheet = workbook.Sheets[addressSheetName];
+          const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet);
+
+          if (targetCategory === 'addressBook' || (rows[0] && ('Nom' in rows[0] || 'nom' in rows[0] || 'Clé' in rows[0] || 'Cle' in rows[0] || 'Nature' in rows[0]))) {
+            addressBook = rows.map((r, i) => ({
+              id: r.id || 'addr-import-' + Date.now() + '-' + i,
+              name: String(r.Nom || r.nom || r.Name || r.name || r.titre || r.title || '').trim(),
+              key: String(r.Clé || r.Cle || r.clé || r.cle || r.Key || r.key || r.code || '').trim(),
+              nature: String(r.Nature || r.nature || r.Type || r.type || r.categorie || '').trim(),
+              notification: String(r.Notification || r.notification || r.notif || r.Notif || '').trim(),
+              createdAt: new Date().toISOString()
+            }));
+          } else if (targetCategory === 'projects' || (rows[0] && ('progression' in rows[0] || 'progress' in rows[0]))) {
+            projects = rows.map((r, i) => ({
+              id: r.id || 'proj-import-' + Date.now() + '-' + i,
+              title: String(r.title || r.Titre || r.titre || 'Projet importé'),
+              description: String(r.description || r.Description || ''),
+              category: String(r.category || r.categorie || r.Catégorie || 'Général'),
+              status: 'en_cours',
+              progress: Number(r.progress || r.progression || 0),
+              dueDate: String(r.dueDate || r.echeance || r.Echéance || ''),
+              tags: []
+            }));
+          } else {
+            // Default to addressBook if ambiguous
+            addressBook = rows.map((r, i) => ({
+              id: r.id || 'addr-import-' + Date.now() + '-' + i,
+              name: String(r.Nom || r.nom || r.Name || r.name || r.titre || r.title || '').trim(),
+              key: String(r.Clé || r.Cle || r.clé || r.cle || r.Key || r.key || r.code || '').trim(),
+              nature: String(r.Nature || r.nature || r.Type || r.type || r.categorie || '').trim(),
+              notification: String(r.Notification || r.notification || r.notif || r.Notif || '').trim(),
+              createdAt: new Date().toISOString()
+            }));
+          }
+        } else if (name.endsWith('.json')) {
+          const raw = JSON.parse(content as string);
+          if (raw && (Array.isArray(raw.addressBook) || Array.isArray(raw.tasks) || Array.isArray(raw.projects) || Array.isArray(raw.links) || Array.isArray(raw.notes))) {
+            addressBook = Array.isArray(raw.addressBook) ? raw.addressBook : [];
             tasks = Array.isArray(raw.tasks) ? raw.tasks : [];
             projects = Array.isArray(raw.projects) ? raw.projects : [];
             links = Array.isArray(raw.links) ? raw.links : [];
             notes = Array.isArray(raw.notes) ? raw.notes : [];
           } else if (Array.isArray(raw)) {
-            // Raw list of objects, route based on targetCategory or fields
-            if (targetCategory === 'tasks' || (raw[0] && 'priority' in raw[0])) {
+            if (targetCategory === 'addressBook' || (raw[0] && ('nature' in raw[0] || 'notification' in raw[0] || 'name' in raw[0]))) {
+              addressBook = raw.map((r, i) => ({
+                id: r.id || 'addr-import-' + Date.now() + '-' + i,
+                name: String(r.name || r.nom || r.Nom || '').trim(),
+                key: String(r.key || r.cle || r.Clé || '').trim(),
+                nature: String(r.nature || r.Nature || '').trim(),
+                notification: String(r.notification || r.Notification || '').trim(),
+                createdAt: r.createdAt || new Date().toISOString()
+              }));
+            } else if (targetCategory === 'tasks' || (raw[0] && 'priority' in raw[0])) {
               tasks = raw;
             } else if (targetCategory === 'projects' || (raw[0] && 'progress' in raw[0])) {
               projects = raw;
@@ -82,16 +136,19 @@ export const SafeImportModal: React.FC<SafeImportModalProps> = ({
             } else if (targetCategory === 'notes' || (raw[0] && 'content' in raw[0])) {
               notes = raw;
             }
-          } else if (typeof raw === 'object') {
-            // Single object import
-            if ('priority' in raw) tasks = [raw];
-            else if ('progress' in raw) projects = [raw];
-            else if ('url' in raw) links = [raw];
-            else if ('content' in raw) notes = [raw];
           }
         } else if (name.endsWith('.csv')) {
-          const rows = parseCSV(text);
-          if (targetCategory === 'tasks' || (rows[0] && 'priorite' in rows[0]) || (rows[0] && 'priority' in rows[0])) {
+          const rows = parseCSV(content as string);
+          if (targetCategory === 'addressBook' || (rows[0] && ('nom' in rows[0] || 'Nom' in rows[0] || 'clé' in rows[0] || 'cle' in rows[0] || 'Clé' in rows[0] || 'nature' in rows[0] || 'Nature' in rows[0]))) {
+            addressBook = rows.map((r, i) => ({
+              id: r.id || 'addr-import-' + Date.now() + '-' + i,
+              name: String(r.Nom || r.nom || r.Name || r.name || r.titre || r.title || '').trim(),
+              key: String(r.Clé || r.Cle || r.clé || r.cle || r.Key || r.key || r.code || '').trim(),
+              nature: String(r.Nature || r.nature || r.Type || r.type || r.categorie || '').trim(),
+              notification: String(r.Notification || r.notification || r.notif || r.Notif || '').trim(),
+              createdAt: new Date().toISOString()
+            }));
+          } else if (targetCategory === 'tasks' || (rows[0] && 'priorite' in rows[0]) || (rows[0] && 'priority' in rows[0])) {
             tasks = rows.map((r, i) => ({
               id: r.id || 'task-import-' + Date.now() + '-' + i,
               title: r.title || r.titre || 'Tâche importée',
@@ -133,11 +190,10 @@ export const SafeImportModal: React.FC<SafeImportModalProps> = ({
             }));
           }
         } else if (name.endsWith('.txt') || name.endsWith('.md')) {
-          // Text/Markdown import as a note
           notes = [{
             id: 'note-import-' + Date.now(),
             title: selectedFile.name.replace(/\.[^/.]+$/, ''),
-            content: text,
+            content: content as string,
             isPinned: false,
             color: 'zinc',
             updatedAt: new Date().toISOString()
@@ -145,13 +201,20 @@ export const SafeImportModal: React.FC<SafeImportModalProps> = ({
         }
 
         // Compute duplicates against current database
-        const existingTaskTitles = new Set(currentData.tasks.map(t => t.title.toLowerCase().trim()));
+        const existingAddressNames = new Set((currentData.addressBook || []).map(a => (a.name || a.key).toLowerCase().trim()));
+        const existingTaskTitles = new Set((currentData.tasks || []).map(t => t.title.toLowerCase().trim()));
         const existingProjTitles = new Set(currentData.projects.map(p => p.title.toLowerCase().trim()));
         const existingLinkUrls = new Set(currentData.links.map(l => l.url.toLowerCase().trim()));
         const existingNoteTitles = new Set(currentData.notes.map(n => n.title.toLowerCase().trim()));
 
         let duplicateCount = 0;
         let newCount = 0;
+
+        addressBook.forEach(a => {
+          const key = (a.name || a.key).toLowerCase().trim();
+          if (key && existingAddressNames.has(key)) duplicateCount++;
+          else newCount++;
+        });
 
         tasks.forEach(t => {
           if (existingTaskTitles.has(t.title.toLowerCase().trim())) duplicateCount++;
@@ -176,6 +239,7 @@ export const SafeImportModal: React.FC<SafeImportModalProps> = ({
         setParsed({
           fileName: selectedFile.name,
           fileSize: selectedFile.size,
+          addressBook,
           tasks,
           projects,
           links,
@@ -188,6 +252,7 @@ export const SafeImportModal: React.FC<SafeImportModalProps> = ({
         setParsed({
           fileName: selectedFile.name,
           fileSize: selectedFile.size,
+          addressBook: [],
           tasks: [],
           projects: [],
           links: [],
@@ -199,7 +264,18 @@ export const SafeImportModal: React.FC<SafeImportModalProps> = ({
         setIsProcessing(false);
       }
     };
-    reader.readAsText(selectedFile);
+
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        processData(e.target.result);
+      }
+    };
+
+    if (isExcel) {
+      reader.readAsArrayBuffer(selectedFile);
+    } else {
+      reader.readAsText(selectedFile);
+    }
   };
 
   const handleConfirmImport = () => {
@@ -210,10 +286,11 @@ export const SafeImportModal: React.FC<SafeImportModalProps> = ({
         return;
       }
       onApplyImport({
-        tasks: parsed.tasks,
-        projects: parsed.projects,
-        links: parsed.links,
-        notes: parsed.notes
+        addressBook: parsed.addressBook.length > 0 ? parsed.addressBook : (currentData.addressBook || []),
+        tasks: parsed.tasks.length > 0 ? parsed.tasks : (currentData.tasks || []),
+        projects: parsed.projects.length > 0 ? parsed.projects : currentData.projects,
+        links: parsed.links.length > 0 ? parsed.links : currentData.links,
+        notes: parsed.notes.length > 0 ? parsed.notes : currentData.notes
       });
       onNotify('Sauvegarde restaurée avec succès', 'success');
       onClose();
@@ -221,8 +298,17 @@ export const SafeImportModal: React.FC<SafeImportModalProps> = ({
     }
 
     if (strategy === 'update_existing') {
+      // Update addressBook by name/key/id, and add new ones
+      const nextAddressBook = [...(currentData.addressBook || [])];
+      parsed.addressBook.forEach(importedAddr => {
+        const keyImported = (importedAddr.name || importedAddr.key).toLowerCase().trim();
+        const idx = nextAddressBook.findIndex(a => a.id === importedAddr.id || (keyImported && (a.name || a.key).toLowerCase().trim() === keyImported));
+        if (idx >= 0) nextAddressBook[idx] = { ...nextAddressBook[idx], ...importedAddr };
+        else nextAddressBook.push(importedAddr);
+      });
+
       // Update by title/id, and add new ones
-      const nextTasks = [...currentData.tasks];
+      const nextTasks = [...(currentData.tasks || [])];
       parsed.tasks.forEach(importedTask => {
         const idx = nextTasks.findIndex(t => t.id === importedTask.id || t.title.toLowerCase().trim() === importedTask.title.toLowerCase().trim());
         if (idx >= 0) nextTasks[idx] = { ...nextTasks[idx], ...importedTask };
@@ -251,6 +337,7 @@ export const SafeImportModal: React.FC<SafeImportModalProps> = ({
       });
 
       onApplyImport({
+        addressBook: nextAddressBook,
         tasks: nextTasks,
         projects: nextProjects,
         links: nextLinks,
@@ -262,24 +349,30 @@ export const SafeImportModal: React.FC<SafeImportModalProps> = ({
     }
 
     // Default: 'add_new' (ignore duplicates)
-    const existingTaskTitles = new Set(currentData.tasks.map(t => t.title.toLowerCase().trim()));
+    const existingAddressKeys = new Set((currentData.addressBook || []).map(a => (a.name || a.key).toLowerCase().trim()));
+    const existingTaskTitles = new Set((currentData.tasks || []).map(t => t.title.toLowerCase().trim()));
     const existingProjTitles = new Set(currentData.projects.map(p => p.title.toLowerCase().trim()));
     const existingLinkUrls = new Set(currentData.links.map(l => l.url.toLowerCase().trim()));
     const existingNoteTitles = new Set(currentData.notes.map(n => n.title.toLowerCase().trim()));
 
+    const newAddressBook = parsed.addressBook.filter(a => {
+      const k = (a.name || a.key).toLowerCase().trim();
+      return !k || !existingAddressKeys.has(k);
+    });
     const newTasks = parsed.tasks.filter(t => !existingTaskTitles.has(t.title.toLowerCase().trim()));
     const newProjects = parsed.projects.filter(p => !existingProjTitles.has(p.title.toLowerCase().trim()));
     const newLinks = parsed.links.filter(l => !existingLinkUrls.has(l.url.toLowerCase().trim()));
     const newNotes = parsed.notes.filter(n => !existingNoteTitles.has(n.title.toLowerCase().trim()));
 
     onApplyImport({
-      tasks: [...newTasks, ...currentData.tasks],
+      addressBook: [...newAddressBook, ...(currentData.addressBook || [])],
+      tasks: [...newTasks, ...(currentData.tasks || [])],
       projects: [...newProjects, ...currentData.projects],
       links: [...newLinks, ...currentData.links],
       notes: [...newNotes, ...currentData.notes]
     });
 
-    const totalAdded = newTasks.length + newProjects.length + newLinks.length + newNotes.length;
+    const totalAdded = newAddressBook.length + newTasks.length + newProjects.length + newLinks.length + newNotes.length;
     onNotify(`${totalAdded} élément${totalAdded > 1 ? 's' : ''} importé${totalAdded > 1 ? 's' : ''} (${parsed.duplicateCount} doublons ignorés)`, 'success');
     onClose();
   };

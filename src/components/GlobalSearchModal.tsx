@@ -19,9 +19,10 @@ import {
   Layers, 
   Sparkles,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  BookUser
 } from 'lucide-react';
-import { AppData, Task, Project, ResourceLink, QuickNote, AttachedFile } from '../types';
+import { AppData, AddressEntry, Task, Project, ResourceLink, QuickNote, AttachedFile } from '../types';
 import { 
   performGlobalSearch, 
   SearchFilterType, 
@@ -40,6 +41,7 @@ interface GlobalSearchModalProps {
   onClose: () => void;
   data: AppData;
   initialQuery?: string;
+  onSelectAddressEntry?: (entry: AddressEntry) => void;
   onSelectTask: (task: Task) => void;
   onSelectProject: (project: Project) => void;
   onSelectLink: (link: ResourceLink) => void;
@@ -53,6 +55,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   onClose,
   data,
   initialQuery = '',
+  onSelectAddressEntry,
   onSelectTask,
   onSelectProject,
   onSelectLink,
@@ -117,6 +120,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   // Flat list of all visible results for keyboard navigation
   const flatResults = useMemo(() => {
     const list: SearchResultItem[] = [];
+    if (filterType === 'all' || filterType === 'addressBook') list.push(...(searchResults.addressBook || []));
     if (filterType === 'all' || filterType === 'projects') list.push(...searchResults.projects);
     if (filterType === 'all' || filterType === 'tasks' || filterType === 'favorites') list.push(...searchResults.tasks);
     if (filterType === 'all' || filterType === 'links' || filterType === 'favorites') list.push(...searchResults.links);
@@ -135,6 +139,11 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     onClose();
 
     switch (item.type) {
+      case 'address':
+        if (onSelectAddressEntry) {
+          onSelectAddressEntry(item.rawItem as AddressEntry);
+        }
+        break;
       case 'task':
         onSelectTask(item.rawItem as Task);
         break;
@@ -306,6 +315,23 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               {!isQueryEmpty && (
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 text-white font-mono">
                   {searchResults.totalCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setFilterType('addressBook')}
+              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 shrink-0 ${
+                filterType === 'addressBook'
+                  ? 'bg-indigo-600 text-white shadow-xs font-semibold'
+                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+              }`}
+            >
+              <BookUser className="w-3.5 h-3.5" />
+              <span>Carnet d’adresses</span>
+              {!isQueryEmpty && (
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 text-white font-mono">
+                  {searchResults.addressBook?.length || 0}
                 </span>
               )}
             </button>
@@ -635,6 +661,28 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             /* STATE 3: Grouped Search Results */
             <div className="space-y-6">
               
+              {/* SECTION: CARNET D'ADRESSES */}
+              {(filterType === 'all' || filterType === 'addressBook') && (searchResults.addressBook?.length || 0) > 0 && (
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between pb-1 border-b border-zinc-100 dark:border-zinc-800/80">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                      <BookUser className="w-3.5 h-3.5" />
+                      <span>Carnet d’adresses ({searchResults.addressBook.length})</span>
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {searchResults.addressBook.map((item) => (
+                      <ResultCard
+                        key={item.id}
+                        item={item}
+                        query={debouncedQuery}
+                        onClick={() => handleItemClick(item)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* SECTION: PROJETS */}
               {(filterType === 'all' || filterType === 'projects') && searchResults.projects.length > 0 && (
                 <div className="space-y-2.5">
@@ -808,6 +856,8 @@ const ResultCard: React.FC<ResultCardProps> = ({
 }) => {
   const getIcon = () => {
     switch (item.type) {
+      case 'address':
+        return <BookUser className="w-4 h-4 text-indigo-500" />;
       case 'project':
         return <Briefcase className="w-4 h-4 text-indigo-500" />;
       case 'task':

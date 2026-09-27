@@ -9,7 +9,7 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { AppData, Task, Project, ResourceLink, QuickNote } from '../types';
+import { AppData, AddressEntry, Task, Project, ResourceLink, QuickNote } from '../types';
 
 export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
 
@@ -54,11 +54,13 @@ export function subscribeToUserCloudData(
   onStatusChange('syncing');
 
   // References to user subcollections
+  const addressBookRef = collection(db, 'users', userId, 'addressBook');
   const tasksRef = collection(db, 'users', userId, 'tasks');
   const projectsRef = collection(db, 'users', userId, 'projects');
   const linksRef = collection(db, 'users', userId, 'links');
   const notesRef = collection(db, 'users', userId, 'notes');
 
+  let currentAddressBook: AddressEntry[] = [];
   let currentTasks: Task[] = [];
   let currentProjects: Project[] = [];
   let currentLinks: ResourceLink[] = [];
@@ -67,10 +69,23 @@ export function subscribeToUserCloudData(
   let loadedSections = 0;
   const markSectionLoaded = () => {
     loadedSections++;
-    if (loadedSections >= 4) {
+    if (loadedSections >= 5) {
       onStatusChange(navigator.onLine ? 'synced' : 'offline');
     }
   };
+
+  const unsubAddressBook = onSnapshot(
+    query(addressBookRef),
+    (snapshot) => {
+      currentAddressBook = snapshot.docs.map(d => d.data() as AddressEntry);
+      onDataReceived({ addressBook: currentAddressBook });
+      markSectionLoaded();
+    },
+    (error) => {
+      console.error('Erreur sync carnet d’adresses:', error);
+      onStatusChange(navigator.onLine ? 'error' : 'offline');
+    }
+  );
 
   const unsubTasks = onSnapshot(
     query(tasksRef),
@@ -126,11 +141,28 @@ export function subscribeToUserCloudData(
 
   // Return combined unsubscribe
   return () => {
+    unsubAddressBook();
     unsubTasks();
     unsubProjects();
     unsubLinks();
     unsubNotes();
   };
+}
+
+/**
+ * Saves/updates a single address entry in Firestore
+ */
+export async function saveAddressEntryToCloud(userId: string, entry: AddressEntry): Promise<void> {
+  const entryRef = doc(db, 'users', userId, 'addressBook', entry.id);
+  await setDoc(entryRef, entry, { merge: true });
+}
+
+/**
+ * Deletes a single address entry from Firestore
+ */
+export async function deleteAddressEntryFromCloud(userId: string, entryId: string): Promise<void> {
+  const entryRef = doc(db, 'users', userId, 'addressBook', entryId);
+  await deleteDoc(entryRef);
 }
 
 /**
@@ -220,11 +252,18 @@ export async function uploadLocalDataToCloud(
   localData: AppData,
   onProgress?: (percent: number) => void
 ): Promise<void> {
+  const addressBook = localData.addressBook || [];
+  const tasks = localData.tasks || [];
+  const projects = localData.projects || [];
+  const links = localData.links || [];
+  const notes = localData.notes || [];
+
   const totalItems = 
-    localData.tasks.length + 
-    localData.projects.length + 
-    localData.links.length + 
-    localData.notes.length;
+    addressBook.length +
+    tasks.length + 
+    projects.length + 
+    links.length + 
+    notes.length;
 
   if (totalItems === 0) return;
 
@@ -236,8 +275,19 @@ export async function uploadLocalDataToCloud(
     }
   };
 
+  // Upload addressBook entries in batches of up to 400 operations
+  for (let i = 0; i < addressBook.length; i += 400) {
+    const batch = writeBatch(db);
+    const chunk = addressBook.slice(i, i + 400);
+    chunk.forEach(entry => {
+      const ref = doc(db, 'users', userId, 'addressBook', entry.id);
+      batch.set(ref, entry, { merge: true });
+      updateProgress();
+    });
+    await batch.commit();
+  }
+
   // Upload tasks in batches of up to 400 operations
-  const tasks = localData.tasks;
   for (let i = 0; i < tasks.length; i += 400) {
     const batch = writeBatch(db);
     const chunk = tasks.slice(i, i + 400);
@@ -250,7 +300,6 @@ export async function uploadLocalDataToCloud(
   }
 
   // Upload projects
-  const projects = localData.projects;
   for (let i = 0; i < projects.length; i += 400) {
     const batch = writeBatch(db);
     const chunk = projects.slice(i, i + 400);
@@ -263,7 +312,6 @@ export async function uploadLocalDataToCloud(
   }
 
   // Upload links
-  const links = localData.links;
   for (let i = 0; i < links.length; i += 400) {
     const batch = writeBatch(db);
     const chunk = links.slice(i, i + 400);
@@ -276,7 +324,6 @@ export async function uploadLocalDataToCloud(
   }
 
   // Upload notes
-  const notes = localData.notes;
   for (let i = 0; i < notes.length; i += 400) {
     const batch = writeBatch(db);
     const chunk = notes.slice(i, i + 400);

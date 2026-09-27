@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AppData } from '../types';
 import { exportDataAsJson, generateStandaloneHtml } from '../utils/storage';
 import { arrayToCSV, downloadFile } from '../utils/fileHelpers';
+import * as XLSX from 'xlsx';
 import { 
   Download, 
   Upload, 
@@ -13,6 +14,7 @@ import {
   FileSpreadsheet,
   Layers,
   Star,
+  BookUser,
   X
 } from 'lucide-react';
 
@@ -35,8 +37,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   onNotify
 }) => {
   const [copiedHtml, setCopiedHtml] = useState(false);
-  const [scope, setScope] = useState<'all' | 'tasks' | 'projects' | 'links' | 'notes' | 'favorites'>('all');
-  const [format, setFormat] = useState<'json' | 'csv' | 'html'>('json');
+  const [scope, setScope] = useState<'all' | 'addressBook' | 'tasks' | 'projects' | 'links' | 'notes' | 'favorites'>('all');
+  const [format, setFormat] = useState<'json' | 'csv' | 'xlsx' | 'html'>('json');
 
   if (!isOpen) return null;
 
@@ -66,7 +68,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       let exportObj: any = data;
       let filename = `espace-numerique-backup-${dateStr}.json`;
 
-      if (scope === 'tasks') {
+      if (scope === 'addressBook') {
+        exportObj = { addressBook: data.addressBook };
+        filename = `carnet-adresses-${dateStr}.json`;
+      } else if (scope === 'tasks') {
         exportObj = { tasks: data.tasks };
         filename = `taches-${dateStr}.json`;
       } else if (scope === 'projects') {
@@ -82,7 +87,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         exportObj = {
           links: data.links.filter(l => l.isFavorite),
           notes: data.notes.filter(n => n.isPinned),
-          tasks: data.tasks.filter(t => t.priority === 'haute' || t.isToday)
+          tasks: (data.tasks || []).filter(t => t.priority === 'haute' || t.isToday)
         };
         filename = `favoris-priorites-${dateStr}.json`;
       }
@@ -93,12 +98,76 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       return;
     }
 
+    if (format === 'xlsx') {
+      const wb = XLSX.utils.book_new();
+      const filename = `espace-numerique-${scope}-${dateStr}.xlsx`;
+
+      if (scope === 'addressBook' || scope === 'all') {
+        const addressRows = (data.addressBook || []).map(e => ({
+          Nom: e.name || '',
+          Clé: e.key || '',
+          Nature: e.nature || '',
+          Notification: e.notification || ''
+        }));
+        const wsAddress = XLSX.utils.json_to_sheet(addressRows);
+        XLSX.utils.book_append_sheet(wb, wsAddress, 'Carnet d’adresses');
+      }
+
+      if (scope === 'projects' || scope === 'all') {
+        const projRows = data.projects.map(p => ({
+          Titre: p.title,
+          Catégorie: p.category,
+          Statut: p.status,
+          Progression: p.progress + '%',
+          Echéance: p.dueDate || '',
+          Description: p.description
+        }));
+        const wsProj = XLSX.utils.json_to_sheet(projRows);
+        XLSX.utils.book_append_sheet(wb, wsProj, 'Projets');
+      }
+
+      if (scope === 'links' || scope === 'all') {
+        const linkRows = data.links.map(l => ({
+          Titre: l.title,
+          URL: l.url,
+          Catégorie: l.category,
+          Favori: l.isFavorite ? 'Oui' : 'Non',
+          Description: l.description
+        }));
+        const wsLinks = XLSX.utils.json_to_sheet(linkRows);
+        XLSX.utils.book_append_sheet(wb, wsLinks, 'Liens');
+      }
+
+      if (scope === 'notes' || scope === 'all') {
+        const noteRows = data.notes.map(n => ({
+          Titre: n.title,
+          Contenu: n.content,
+          Epinglé: n.isPinned ? 'Oui' : 'Non',
+          Dernière_Modification: n.updatedAt
+        }));
+        const wsNotes = XLSX.utils.json_to_sheet(noteRows);
+        XLSX.utils.book_append_sheet(wb, wsNotes, 'Notes');
+      }
+
+      XLSX.writeFile(wb, filename);
+      onNotify?.(`Export Excel XLSX téléchargé : ${filename}`, 'success');
+      onClose();
+      return;
+    }
+
     if (format === 'csv') {
       let csvContent = '';
       let filename = `espace-numerique-${scope}-${dateStr}.csv`;
 
-      if (scope === 'tasks') {
-        csvContent = arrayToCSV(data.tasks.map(t => ({
+      if (scope === 'addressBook') {
+        csvContent = arrayToCSV((data.addressBook || []).map(e => ({
+          Nom: e.name || '',
+          Clé: e.key || '',
+          Nature: e.nature || '',
+          Notification: e.notification || ''
+        })));
+      } else if (scope === 'tasks') {
+        csvContent = arrayToCSV((data.tasks || []).map(t => ({
           ID: t.id,
           Titre: t.title,
           Statut: t.completed ? 'Terminé' : 'En attente',
@@ -138,9 +207,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           Derniere_Mise_A_Jour: n.updatedAt
         })));
       } else {
-        // All or favorites in CSV: export tasks + projects + links
+        // All in CSV: export addressBook + projects + links + notes
         const allRows = [
-          ...data.tasks.map(t => ({ Type: 'Tâche', Titre: t.title, Détail: t.priority, Statut: t.completed ? 'Terminé' : 'En cours' })),
+          ...(data.addressBook || []).map(e => ({ Type: 'Carnet', Titre: e.name, Détail: e.key, Statut: e.nature })),
           ...data.projects.map(p => ({ Type: 'Projet', Titre: p.title, Détail: p.category, Statut: p.status })),
           ...data.links.map(l => ({ Type: 'Lien', Titre: l.title, Détail: l.url, Statut: l.isFavorite ? 'Favori' : 'Normal' })),
           ...data.notes.map(n => ({ Type: 'Note', Titre: n.title, Détail: n.content.substring(0, 50), Statut: n.isPinned ? 'Épinglé' : '' }))
@@ -179,18 +248,18 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {[
-              { id: 'all', label: 'Toutes les données', count: data.tasks.length + data.projects.length + data.links.length + data.notes.length },
-              { id: 'tasks', label: 'Tâches du jour', count: data.tasks.length },
+              { id: 'all', label: 'Toutes les données', count: (data.addressBook?.length || 0) + data.projects.length + data.links.length + data.notes.length },
+              { id: 'addressBook', label: 'Carnet d’adresses', count: data.addressBook?.length || 0 },
               { id: 'projects', label: 'Projets', count: data.projects.length },
               { id: 'links', label: 'Liens favoris', count: data.links.length },
               { id: 'notes', label: 'Bloc-notes', count: data.notes.length },
-              { id: 'favorites', label: 'Favoris & Urgences', count: data.links.filter(l => l.isFavorite).length + data.tasks.filter(t => t.priority === 'haute').length },
+              { id: 'favorites', label: 'Favoris & Épinglés', count: data.links.filter(l => l.isFavorite).length + data.notes.filter(n => n.isPinned).length },
             ].map(item => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => setScope(item.id as any)}
-                className={`p-2.5 rounded-xl border text-left transition-all text-xs active:scale-95 ${
+                className={`p-2.5 rounded-xl border text-left transition-all text-xs active:scale-95 cursor-pointer ${
                   scope === item.id
                     ? 'border-indigo-500 bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 font-bold shadow-xs'
                     : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 bg-zinc-50 dark:bg-zinc-950/60 text-zinc-700 dark:text-zinc-300'
@@ -208,35 +277,47 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
             2. Format d'exportation
           </label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
               type="button"
-              onClick={() => setFormat('json')}
-              className={`p-3 rounded-xl border text-center transition-all text-xs active:scale-95 ${
-                format === 'json'
-                  ? 'border-indigo-500 bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 font-bold'
-                  : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 text-zinc-700 dark:text-zinc-300'
-              }`}
-            >
-              <Database className="w-4 h-4 mx-auto mb-1 text-indigo-500" />
-              <span>JSON (Sauvegarde)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFormat('csv')}
-              className={`p-3 rounded-xl border text-center transition-all text-xs active:scale-95 ${
-                format === 'csv'
+              onClick={() => setFormat('xlsx')}
+              className={`p-2.5 rounded-xl border text-center transition-all text-xs active:scale-95 cursor-pointer ${
+                format === 'xlsx'
                   ? 'border-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 font-bold'
                   : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 text-zinc-700 dark:text-zinc-300'
               }`}
             >
               <FileSpreadsheet className="w-4 h-4 mx-auto mb-1 text-emerald-500" />
-              <span>CSV (Tableur)</span>
+              <span>Excel (XLSX)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormat('csv')}
+              className={`p-2.5 rounded-xl border text-center transition-all text-xs active:scale-95 cursor-pointer ${
+                format === 'csv'
+                  ? 'border-indigo-500 bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 font-bold'
+                  : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 text-zinc-700 dark:text-zinc-300'
+              }`}
+            >
+              <Download className="w-4 h-4 mx-auto mb-1 text-indigo-500" />
+              <span>CSV (Standard)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormat('json')}
+              className={`p-2.5 rounded-xl border text-center transition-all text-xs active:scale-95 cursor-pointer ${
+                format === 'json'
+                  ? 'border-purple-500 bg-purple-50/80 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 font-bold'
+                  : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 text-zinc-700 dark:text-zinc-300'
+              }`}
+            >
+              <Database className="w-4 h-4 mx-auto mb-1 text-purple-500" />
+              <span>JSON (Complet)</span>
             </button>
             <button
               type="button"
               onClick={() => setFormat('html')}
-              className={`p-3 rounded-xl border text-center transition-all text-xs active:scale-95 ${
+              className={`p-2.5 rounded-xl border text-center transition-all text-xs active:scale-95 cursor-pointer ${
                 format === 'html'
                   ? 'border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-bold'
                   : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 text-zinc-700 dark:text-zinc-300'

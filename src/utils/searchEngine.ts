@@ -1,10 +1,10 @@
-import { AppData, Task, Project, ResourceLink, QuickNote, AttachedFile } from '../types';
+import { AppData, AddressEntry, Task, Project, ResourceLink, QuickNote, AttachedFile } from '../types';
 
-export type SearchFilterType = 'all' | 'tasks' | 'projects' | 'links' | 'notes' | 'documents' | 'favorites';
+export type SearchFilterType = 'all' | 'addressBook' | 'tasks' | 'projects' | 'links' | 'notes' | 'documents' | 'favorites';
 
 export interface SearchResultItem {
   id: string;
-  type: 'task' | 'project' | 'link' | 'note' | 'document';
+  type: 'address' | 'task' | 'project' | 'link' | 'note' | 'document';
   title: string;
   subtitle?: string;
   snippet?: string;
@@ -14,7 +14,7 @@ export interface SearchResultItem {
   date?: string;
   isFavorite?: boolean;
   score: number;
-  rawItem: Task | Project | ResourceLink | QuickNote;
+  rawItem: AddressEntry | Task | Project | ResourceLink | QuickNote;
   parentItem?: Task | Project | ResourceLink | QuickNote;
   attachedFile?: AttachedFile;
   matchedFields: string[];
@@ -28,6 +28,7 @@ export interface SearchFilters {
 }
 
 export interface GroupedSearchResults {
+  addressBook: SearchResultItem[];
   tasks: SearchResultItem[];
   projects: SearchResultItem[];
   links: SearchResultItem[];
@@ -242,6 +243,7 @@ export function performGlobalSearch(
   const queryTerms = normalizedQuery.split(/\s+/).filter(t => t.length > 0);
 
   const results: GroupedSearchResults = {
+    addressBook: [],
     tasks: [],
     projects: [],
     links: [],
@@ -257,6 +259,40 @@ export function performGlobalSearch(
 
   const projectMap = new Map<string, Project>();
   data.projects.forEach(p => projectMap.set(p.id, p));
+
+  // --- 0. SEARCH CARNET D’ADRESSES ---
+  if (filters.type === 'all' || filters.type === 'addressBook') {
+    (data.addressBook || []).forEach(entry => {
+      const fields = [
+        { name: 'nom', value: entry.name, weight: 2.5 },
+        { name: 'cle', value: entry.key, weight: 2.2 },
+        { name: 'nature', value: entry.nature, weight: 1.8 },
+        { name: 'notification', value: entry.notification, weight: 1.5 },
+      ];
+
+      const { totalScore, matchedFields, bestSnippet } = scoreItem(fields, queryTerms);
+
+      if (queryTerms.length === 0 || totalScore > 0) {
+        const subtitleParts: string[] = [];
+        if (entry.key) subtitleParts.push(`Clé: ${entry.key}`);
+        if (entry.nature) subtitleParts.push(entry.nature);
+
+        results.addressBook.push({
+          id: entry.id,
+          type: 'address',
+          title: entry.name || 'Entrée sans nom',
+          subtitle: subtitleParts.join(' · ') || (entry.notification ? `Notif: ${entry.notification}` : undefined),
+          snippet: bestSnippet ? createExcerpt(bestSnippet, query) : (entry.notification ? createExcerpt(entry.notification, query) : undefined),
+          badge: entry.nature || 'Carnet',
+          badgeType: 'category',
+          date: entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('fr-FR') : undefined,
+          score: queryTerms.length === 0 ? 50 : totalScore + (entry.name ? 5 : 0),
+          rawItem: entry,
+          matchedFields
+        });
+      }
+    });
+  }
 
   // --- 1. SEARCH TASKS ---
   if (filters.type === 'all' || filters.type === 'tasks' || (filters.type === 'favorites' && filters.onlyFavorites)) {
@@ -495,6 +531,7 @@ export function performGlobalSearch(
   }
 
   // Sort each array by descending score
+  results.addressBook.sort((a, b) => b.score - a.score);
   results.tasks.sort((a, b) => b.score - a.score);
   results.projects.sort((a, b) => b.score - a.score);
   results.links.sort((a, b) => b.score - a.score);
@@ -502,6 +539,7 @@ export function performGlobalSearch(
   results.documents.sort((a, b) => b.score - a.score);
 
   results.totalCount =
+    results.addressBook.length +
     results.tasks.length +
     results.projects.length +
     results.links.length +
