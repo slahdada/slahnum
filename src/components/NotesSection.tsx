@@ -6,10 +6,19 @@ import {
   Copy, 
   Check, 
   Trash2, 
-  LayoutGrid,
-  List
+  LayoutGrid, 
+  List, 
+  Upload, 
+  Download, 
+  Share2, 
+  Edit3, 
+  Paperclip 
 } from 'lucide-react';
 import { QuickNote, NoteColor, DisplayMode } from '../types';
+import { ActionMenu } from './ActionMenu';
+import { EditNoteModal } from './EditNoteModal';
+import { BulkActionBar } from './BulkActionBar';
+import { downloadFile, arrayToCSV, shareContent } from '../utils/fileHelpers';
 
 interface NotesSectionProps {
   notes: QuickNote[];
@@ -19,6 +28,8 @@ interface NotesSectionProps {
   onUpdateNote: (id: string, updates: Partial<QuickNote>) => void;
   onDeleteNote: (id: string) => void;
   onTogglePin: (id: string) => void;
+  onImportNotesRequest?: () => void;
+  onNotify: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
 
 export const NotesSection: React.FC<NotesSectionProps> = ({
@@ -28,7 +39,9 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
   onAddNote,
   onUpdateNote,
   onDeleteNote,
-  onTogglePin
+  onTogglePin,
+  onImportNotesRequest,
+  onNotify
 }) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -37,15 +50,18 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
   const [newColor, setNewColor] = useState<NoteColor>('blue');
   const [localDisplayMode, setLocalDisplayMode] = useState<DisplayMode>(initialDisplayMode);
 
+  // Edit Modal State
+  const [editingNote, setEditingNote] = useState<QuickNote | null>(null);
+
+  // Multi-Selection State
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
   React.useEffect(() => {
     if (initialDisplayMode) {
       setLocalDisplayMode(initialDisplayMode);
     }
   }, [initialDisplayMode]);
-
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [editContent, setEditContent] = useState('');
 
   const colorStyles: Record<NoteColor, { border: string; bg: string; dot: string; label: string }> = {
     zinc: { border: 'border-zinc-200 dark:border-zinc-800', bg: 'bg-zinc-50 dark:bg-zinc-950/70', dot: 'bg-zinc-400', label: 'Neutre' },
@@ -64,33 +80,50 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
       title: newTitle.trim() || 'Note rapide',
       content: newContent.trim(),
       isPinned: false,
-      color: newColor
+      color: newColor,
+      tags: [],
+      documents: []
     });
 
     setNewTitle('');
     setNewContent('');
     setIsCreating(false);
+    onNotify('Note enregistrée', 'success');
   };
 
-  const handleStartEdit = (note: QuickNote) => {
-    setEditingNoteId(note.id);
-    setEditTitle(note.title);
-    setEditContent(note.content);
-  };
-
-  const handleSaveEdit = (id: string) => {
-    onUpdateNote(id, {
-      title: editTitle.trim() || 'Note sans titre',
-      content: editContent.trim(),
-      updatedAt: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  const handleDuplicate = (note: QuickNote) => {
+    onAddNote({
+      title: note.title + ' (Copie)',
+      content: note.content,
+      isPinned: false,
+      color: note.color,
+      tags: note.tags ? [...note.tags] : [],
+      documents: note.documents ? [...note.documents] : []
     });
-    setEditingNoteId(null);
+    onNotify('Note dupliquée avec succès', 'success');
   };
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
+    onNotify('Texte copié dans le presse-papiers', 'success');
     setTimeout(() => setCopiedId(null), 1800);
+  };
+
+  const handleShare = async (note: QuickNote) => {
+    const shared = await shareContent({
+      title: note.title,
+      text: note.content
+    });
+    if (shared) {
+      onNotify('Note partagée ou copiée', 'success');
+    }
+  };
+
+  const handleExportMarkdown = (note: QuickNote) => {
+    const md = `# ${note.title}\n\n*${note.updatedAt}*\n\n${note.content}\n`;
+    downloadFile(md, `${note.title.toLowerCase().replace(/\s+/g, '-')}.md`, 'text/markdown;charset=utf-8');
+    onNotify('Note exportée en Markdown', 'info');
   };
 
   const filteredNotes = notes.filter(n => {
@@ -107,6 +140,52 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
     if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
     return 0;
   });
+
+  // Multi-Selection Handlers
+  const toggleSelectNote = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    setSelectedIds(sortedNotes.map(n => n.id));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds([]);
+    setIsSelectMode(false);
+  };
+
+  const handleExportSelected = () => {
+    const selectedNotes = notes.filter(n => selectedIds.includes(n.id));
+    const jsonStr = JSON.stringify(selectedNotes, null, 2);
+    downloadFile(jsonStr, `selection-notes-${Date.now()}.json`, 'application/json');
+    onNotify(`${selectedNotes.length} notes exportées`, 'success');
+  };
+
+  const handleDeleteSelected = () => {
+    if (window.confirm(`Supprimer définitivement les ${selectedIds.length} notes sélectionnées ?`)) {
+      selectedIds.forEach(id => onDeleteNote(id));
+      onNotify(`${selectedIds.length} notes supprimées`, 'info');
+      handleClearSelection();
+    }
+  };
+
+  // Export current list
+  const handleExportSection = () => {
+    const csvContent = arrayToCSV(filteredNotes.map(n => ({
+      Titre: n.title,
+      Contenu: n.content,
+      Epinglé: n.isPinned ? 'Oui' : 'Non',
+      Couleur: n.color,
+      Documents: (n.documents || []).length,
+      Derniere_Mise_A_Jour: n.updatedAt
+    })));
+    downloadFile(csvContent, `notes-${Date.now()}.csv`, 'text/csv;charset=utf-8');
+    onNotify('Liste des notes exportée au format CSV', 'info');
+  };
 
   return (
     <div className="bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800/90 rounded-2xl p-3.5 sm:p-5 flex flex-col h-full shadow-sm dark:shadow-none transition-colors duration-200">
@@ -125,7 +204,49 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+          {/* Action buttons: Importer / Exporter */}
+          <div className="flex items-center gap-1">
+            {onImportNotesRequest && (
+              <button
+                type="button"
+                onClick={onImportNotesRequest}
+                className="min-h-[36px] px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1.5 active:scale-95 transition-all"
+                title="Importer des notes (Markdown, TXT ou JSON)"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span className="hidden xs:inline">Importer</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleExportSection}
+              className="min-h-[36px] px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1.5 active:scale-95 transition-all"
+              title="Exporter les notes au format CSV"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">Exporter</span>
+            </button>
+
+            {/* Multi-selection toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsSelectMode(!isSelectMode);
+                if (isSelectMode) setSelectedIds([]);
+              }}
+              className={`min-h-[36px] px-2.5 py-1.5 text-xs font-semibold rounded-xl border transition-all active:scale-95 ${
+                isSelectMode
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300'
+              }`}
+              title="Activer la sélection multiple"
+            >
+              <span>{isSelectMode ? 'Annuler sélection' : 'Sélection'}</span>
+            </button>
+          </div>
+
           {/* Display Mode Switch */}
           <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-950/80 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs shrink-0">
             <button
@@ -185,7 +306,7 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
           />
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-zinc-200 dark:border-zinc-800">
-            {/* Large Color Swatches */}
+            {/* Color Swatches */}
             <div className="flex items-center gap-2">
               <span className="text-[11px] text-zinc-500 mr-1">Couleur :</span>
               {(Object.keys(colorStyles) as NoteColor[]).map((c) => (
@@ -233,90 +354,119 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto max-h-[500px] pr-0.5 flex-1">
           {sortedNotes.map((note) => {
             const style = colorStyles[note.color] || colorStyles.blue;
-            const isEditing = editingNoteId === note.id;
+            const isSelected = selectedIds.includes(note.id);
+            const docCount = (note.documents || []).length;
 
             return (
               <div
                 key={note.id}
-                className={`${style.bg} ${style.border} border rounded-2xl p-4 flex flex-col justify-between transition-all duration-150 shadow-sm relative`}
+                className={`${style.bg} ${style.border} border rounded-2xl p-4 flex flex-col justify-between transition-all duration-150 shadow-sm relative ${
+                  isSelected ? 'ring-2 ring-indigo-500' : ''
+                }`}
               >
-                {isEditing ? (
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2.5 py-1.5 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none"
-                    />
-                    <textarea
-                      rows={3}
-                      value={editContent}
-                      onChange={(e) => setEditContent(e.target.value)}
-                      className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-800 dark:text-zinc-200 focus:outline-none resize-none"
-                    />
-                    <div className="flex justify-end gap-2 pt-1">
-                      <button
-                        onClick={() => setEditingNoteId(null)}
-                        className="min-h-[36px] px-3 py-1 text-xs text-zinc-500"
-                      >
-                        Annuler
-                      </button>
-                      <button
-                        onClick={() => handleSaveEdit(note.id)}
-                        className="min-h-[36px] px-3.5 py-1 text-xs font-semibold bg-indigo-600 text-white rounded-lg active:scale-95"
-                      >
-                        Sauvegarder
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className={`w-2.5 h-2.5 rounded-full ${style.dot}`} />
-                        <span className="text-[11px] font-semibold text-zinc-500 capitalize">
-                          {style.label}
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      {isSelectMode && (
+                        <button
+                          type="button"
+                          onClick={(e) => toggleSelectNote(note.id, e)}
+                          className="mr-1"
+                        >
+                          <div className={`w-4 h-4 rounded flex items-center justify-center border ${
+                            isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-zinc-400'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                        </button>
+                      )}
+                      <span className={`w-2.5 h-2.5 rounded-full ${style.dot}`} />
+                      <span className="text-[11px] font-semibold text-zinc-500 capitalize">
+                        {style.label}
+                      </span>
+                      {docCount > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-semibold flex items-center gap-0.5">
+                          <Paperclip className="w-2.5 h-2.5" />
+                          {docCount}
                         </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => onTogglePin(note.id)}
-                          className={`min-w-[36px] min-h-[36px] flex items-center justify-center transition-colors ${
-                            note.isPinned
-                              ? 'text-indigo-600 dark:text-indigo-400'
-                              : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
-                          }`}
-                          title={note.isPinned ? 'Détacher' : 'Épingler'}
-                          aria-label="Épingler"
-                        >
-                          <Pin className={`w-4 h-4 ${note.isPinned ? 'fill-current' : ''}`} />
-                        </button>
-                        <button
-                          onClick={() => onDeleteNote(note.id)}
-                          className="min-w-[36px] min-h-[36px] flex items-center justify-center text-zinc-400 hover:text-red-500 transition-colors"
-                          title="Supprimer la note"
-                          aria-label="Supprimer la note"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      )}
                     </div>
 
-                    <h3 
-                      onClick={() => handleStartEdit(note)}
-                      className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white tracking-tight cursor-pointer leading-snug"
-                    >
-                      {note.title}
-                    </h3>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => onTogglePin(note.id)}
+                        className={`min-w-[36px] min-h-[36px] flex items-center justify-center transition-colors ${
+                          note.isPinned
+                            ? 'text-indigo-600 dark:text-indigo-400'
+                            : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+                        }`}
+                        title={note.isPinned ? 'Détacher' : 'Épingler'}
+                        aria-label="Épingler"
+                      >
+                        <Pin className={`w-4 h-4 ${note.isPinned ? 'fill-current' : ''}`} />
+                      </button>
 
-                    <p 
-                      onClick={() => handleStartEdit(note)}
-                      className="text-xs text-zinc-600 dark:text-zinc-300 mt-1.5 whitespace-pre-wrap leading-relaxed cursor-pointer line-clamp-4"
-                    >
-                      {note.content}
-                    </p>
+                      {/* Plus d'actions (⋮ ActionMenu) */}
+                      <ActionMenu
+                        title={note.title}
+                        subtitle="Actions sur la note"
+                        items={[
+                          {
+                            label: 'Modifier',
+                            icon: <Edit3 className="w-4 h-4 text-indigo-500" />,
+                            onClick: () => setEditingNote(note),
+                            variant: 'primary'
+                          },
+                          {
+                            label: 'Télécharger (Markdown)',
+                            icon: <Download className="w-4 h-4 text-emerald-500" />,
+                            onClick: () => handleExportMarkdown(note)
+                          },
+                          {
+                            label: 'Dupliquer',
+                            icon: <Copy className="w-4 h-4 text-zinc-500" />,
+                            onClick: () => handleDuplicate(note)
+                          },
+                          {
+                            label: 'Partager / Copier',
+                            icon: <Share2 className="w-4 h-4 text-indigo-500" />,
+                            onClick: () => handleShare(note)
+                          },
+                          {
+                            label: note.isPinned ? 'Détacher' : 'Épingler en haut',
+                            icon: <Pin className="w-4 h-4 text-amber-500" />,
+                            onClick: () => onTogglePin(note.id)
+                          },
+                          {
+                            label: 'Supprimer',
+                            icon: <Trash2 className="w-4 h-4 text-red-500" />,
+                            onClick: () => {
+                              if (window.confirm('Supprimer cette note ?')) {
+                                onDeleteNote(note.id);
+                                onNotify('Note supprimée', 'info');
+                              }
+                            },
+                            variant: 'danger'
+                          }
+                        ]}
+                      />
+                    </div>
                   </div>
-                )}
+
+                  <h3 
+                    onClick={() => setEditingNote(note)}
+                    className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white tracking-tight cursor-pointer leading-snug"
+                  >
+                    {note.title}
+                  </h3>
+
+                  <p 
+                    onClick={() => setEditingNote(note)}
+                    className="text-xs text-zinc-600 dark:text-zinc-300 mt-1.5 whitespace-pre-wrap leading-relaxed cursor-pointer line-clamp-4"
+                  >
+                    {note.content}
+                  </p>
+                </div>
 
                 <div className="flex items-center justify-between pt-3 mt-3 border-t border-zinc-200/60 dark:border-zinc-800/60 text-xs">
                   <span className="text-zinc-400 text-[11px]">
@@ -351,22 +501,46 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
         <div className="space-y-2 overflow-y-auto max-h-[500px] pr-0.5">
           {sortedNotes.map((note) => {
             const style = colorStyles[note.color] || colorStyles.blue;
+            const isSelected = selectedIds.includes(note.id);
+            const docCount = (note.documents || []).length;
+
             return (
               <div
                 key={note.id}
-                className={`p-3.5 ${style.bg} ${style.border} border rounded-xl flex items-center justify-between gap-3 transition-colors shadow-sm`}
+                className={`p-3.5 ${style.bg} ${style.border} border rounded-xl flex items-center justify-between gap-3 transition-colors shadow-sm ${
+                  isSelected ? 'ring-2 ring-indigo-500' : ''
+                }`}
               >
                 <div 
                   className="min-w-0 flex-1 cursor-pointer"
-                  onClick={() => handleStartEdit(note)}
+                  onClick={() => setEditingNote(note)}
                 >
                   <div className="flex items-center gap-2">
+                    {isSelectMode && (
+                      <button
+                        type="button"
+                        onClick={(e) => toggleSelectNote(note.id, e)}
+                        className="mr-1"
+                      >
+                        <div className={`w-4 h-4 rounded flex items-center justify-center border ${
+                          isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-zinc-400'
+                        }`}>
+                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                      </button>
+                    )}
                     <span className={`w-2 h-2 rounded-full ${style.dot} shrink-0`} />
                     <h3 className="text-sm font-bold text-zinc-900 dark:text-white truncate">
                       {note.title}
                     </h3>
                     {note.isPinned && (
                       <Pin className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 fill-current shrink-0" />
+                    )}
+                    {docCount > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-semibold flex items-center gap-0.5 shrink-0">
+                        <Paperclip className="w-2.5 h-2.5" />
+                        {docCount}
+                      </span>
                     )}
                   </div>
                   <p className="text-xs text-zinc-600 dark:text-zinc-400 truncate mt-0.5">
@@ -387,19 +561,81 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
                     )}
                   </button>
 
-                  <button
-                    onClick={() => onDeleteNote(note.id)}
-                    className="min-w-[40px] min-h-[40px] flex items-center justify-center text-zinc-400 hover:text-red-500 dark:text-zinc-500 dark:hover:text-red-400 rounded-lg active:scale-95"
-                    title="Supprimer la note"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {/* Plus d'actions (⋮ ActionMenu) */}
+                  <ActionMenu
+                    title={note.title}
+                    subtitle="Actions sur la note"
+                    items={[
+                      {
+                        label: 'Modifier',
+                        icon: <Edit3 className="w-4 h-4 text-indigo-500" />,
+                        onClick: () => setEditingNote(note),
+                        variant: 'primary'
+                      },
+                      {
+                        label: 'Télécharger (Markdown)',
+                        icon: <Download className="w-4 h-4 text-emerald-500" />,
+                        onClick: () => handleExportMarkdown(note)
+                      },
+                      {
+                        label: 'Partager / Envoyer',
+                        icon: <Share2 className="w-4 h-4 text-indigo-500" />,
+                        onClick: () => handleShare(note)
+                      },
+                      {
+                        label: 'Dupliquer',
+                        icon: <Copy className="w-4 h-4 text-zinc-500" />,
+                        onClick: () => handleDuplicate(note)
+                      },
+                      {
+                        label: note.isPinned ? 'Détacher' : 'Épingler en haut',
+                        icon: <Pin className="w-4 h-4 text-amber-500" />,
+                        onClick: () => onTogglePin(note.id)
+                      },
+                      {
+                        label: 'Supprimer',
+                        icon: <Trash2 className="w-4 h-4 text-red-500" />,
+                        onClick: () => {
+                          if (window.confirm('Supprimer cette note ?')) {
+                            onDeleteNote(note.id);
+                            onNotify('Note supprimée', 'info');
+                          }
+                        },
+                        variant: 'danger'
+                      }
+                    ]}
+                  />
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      {/* Full Edit Modal */}
+      <EditNoteModal
+        isOpen={!!editingNote}
+        onClose={() => setEditingNote(null)}
+        note={editingNote}
+        onSaveNote={(updatedNote) => {
+          onUpdateNote(updatedNote.id, updatedNote);
+          onNotify('Note modifiée', 'success');
+        }}
+        onDeleteNote={onDeleteNote}
+        onDuplicateNote={handleDuplicate}
+        onNotify={onNotify}
+      />
+
+      {/* Floating Bulk Action Bar */}
+      <BulkActionBar
+        selectedCount={selectedIds.length}
+        totalCount={sortedNotes.length}
+        onSelectAll={handleSelectAll}
+        onClearSelection={handleClearSelection}
+        onExportSelected={handleExportSelected}
+        onDeleteSelected={handleDeleteSelected}
+        itemLabel="notes"
+      />
     </div>
   );
 };

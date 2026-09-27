@@ -3,20 +3,34 @@ import {
   Plus, 
   Calendar, 
   Trash2, 
-  FolderKanban,
-  LayoutGrid,
-  List
+  FolderKanban, 
+  LayoutGrid, 
+  List, 
+  Upload, 
+  Download, 
+  Edit3, 
+  Copy, 
+  Paperclip, 
+  Archive, 
+  Check 
 } from 'lucide-react';
 import { Project, ProjectStatus, DisplayMode } from '../types';
+import { ActionMenu } from './ActionMenu';
+import { EditProjectModal } from './EditProjectModal';
+import { BulkActionBar } from './BulkActionBar';
+import { downloadFile, arrayToCSV } from '../utils/fileHelpers';
 
 interface ProjectsSectionProps {
   projects: Project[];
   searchQuery: string;
   displayMode?: DisplayMode;
   onAddProject: (project: Omit<Project, 'id'>) => void;
+  onUpdateProject: (project: Project) => void;
   onUpdateProjectProgress: (id: string, progress: number) => void;
   onUpdateProjectStatus: (id: string, status: ProjectStatus) => void;
   onDeleteProject: (id: string) => void;
+  onImportProjectsRequest?: () => void;
+  onNotify: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
 
 export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
@@ -24,13 +38,23 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
   searchQuery,
   displayMode: initialDisplayMode = 'cards',
   onAddProject,
+  onUpdateProject,
   onUpdateProjectProgress,
   onUpdateProjectStatus,
-  onDeleteProject
+  onDeleteProject,
+  onImportProjectsRequest,
+  onNotify
 }) => {
-  const [filter, setFilter] = useState<'all' | 'en_cours' | 'en_attente' | 'termine'>('all');
+  const [filter, setFilter] = useState<'all' | 'en_cours' | 'en_attente' | 'termine' | 'archived'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [localDisplayMode, setLocalDisplayMode] = useState<DisplayMode>(initialDisplayMode);
+
+  // Edit Modal State
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+
+  // Multi-Selection State
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   React.useEffect(() => {
     if (initialDisplayMode) {
@@ -63,7 +87,8 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
       status,
       progress: Number(progress),
       dueDate: dueDate || '',
-      tags
+      tags,
+      documents: []
     });
 
     setTitle('');
@@ -74,8 +99,40 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
     setDueDate('');
     setTagInput('');
     setIsModalOpen(false);
+    onNotify('Projet créé avec succès', 'success');
   };
 
+  const handleDuplicate = (proj: Project) => {
+    onAddProject({
+      title: proj.title + ' (Copie)',
+      description: proj.description,
+      category: proj.category,
+      status: 'en_cours',
+      progress: 0,
+      dueDate: proj.dueDate,
+      tags: [...proj.tags],
+      notes: proj.notes,
+      documents: proj.documents ? [...proj.documents] : []
+    });
+    onNotify('Projet dupliqué avec succès', 'success');
+  };
+
+  const handleToggleArchive = (proj: Project) => {
+    const nextArchived = !proj.isArchived;
+    onUpdateProject({
+      ...proj,
+      isArchived: nextArchived
+    });
+    onNotify(nextArchived ? 'Projet archivé' : 'Projet restauré des archives', 'info');
+  };
+
+  const handleExportSingleProject = (proj: Project) => {
+    const jsonStr = JSON.stringify(proj, null, 2);
+    downloadFile(jsonStr, `projet-${proj.id}.json`, 'application/json');
+    onNotify('Données du projet exportées en JSON', 'info');
+  };
+
+  // Filter projects
   const filteredProjects = projects.filter(p => {
     if (searchQuery) {
       const match = 
@@ -86,9 +143,60 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
       if (!match) return false;
     }
 
+    if (filter === 'archived') return !!p.isArchived;
+    if (p.isArchived) return false; // Hide archived in regular tabs
+
     if (filter === 'all') return true;
     return p.status === filter;
   });
+
+  // Multi-Selection Handlers
+  const toggleSelectProject = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    setSelectedIds(filteredProjects.map(p => p.id));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds([]);
+    setIsSelectMode(false);
+  };
+
+  const handleExportSelected = () => {
+    const selectedProjects = projects.filter(p => selectedIds.includes(p.id));
+    const jsonStr = JSON.stringify(selectedProjects, null, 2);
+    downloadFile(jsonStr, `selection-projets-${Date.now()}.json`, 'application/json');
+    onNotify(`${selectedProjects.length} projets exportés`, 'success');
+  };
+
+  const handleDeleteSelected = () => {
+    if (window.confirm(`Supprimer définitivement les ${selectedIds.length} projets sélectionnés ?`)) {
+      selectedIds.forEach(id => onDeleteProject(id));
+      onNotify(`${selectedIds.length} projets supprimés`, 'info');
+      handleClearSelection();
+    }
+  };
+
+  // Export current list
+  const handleExportSection = () => {
+    const csvContent = arrayToCSV(filteredProjects.map(p => ({
+      Titre: p.title,
+      Catégorie: p.category,
+      Statut: p.status,
+      Progression: p.progress + '%',
+      Echéance: p.dueDate || '',
+      Tags: p.tags.join('; '),
+      Documents: (p.documents || []).length,
+      Description: p.description
+    })));
+    downloadFile(csvContent, `projets-${filter}-${Date.now()}.csv`, 'text/csv;charset=utf-8');
+    onNotify('Liste des projets exportée au format CSV', 'info');
+  };
 
   return (
     <div className="bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800/90 rounded-2xl p-3.5 sm:p-5 flex flex-col h-full shadow-sm dark:shadow-none transition-colors duration-200">
@@ -99,15 +207,57 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
           <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white tracking-tight flex items-center gap-2">
             <span>Suivi de Projets</span>
             <span className="text-xs font-mono tabular-nums text-zinc-500 font-normal">
-              ({projects.length} au total)
+              ({projects.filter(p => !p.isArchived).length} actifs)
             </span>
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Tableau de bord d'avancement de vos initiatives et jalons numériques
+            Tableau de bord, documents associés et jalons numériques
           </p>
         </div>
 
-        <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+          {/* Action buttons: Importer / Exporter */}
+          <div className="flex items-center gap-1">
+            {onImportProjectsRequest && (
+              <button
+                type="button"
+                onClick={onImportProjectsRequest}
+                className="min-h-[36px] px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1.5 active:scale-95 transition-all"
+                title="Importer des projets (CSV ou JSON)"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span className="hidden xs:inline">Importer</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleExportSection}
+              className="min-h-[36px] px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1.5 active:scale-95 transition-all"
+              title="Exporter les projets filtrés"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">Exporter</span>
+            </button>
+
+            {/* Multi-selection toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsSelectMode(!isSelectMode);
+                if (isSelectMode) setSelectedIds([]);
+              }}
+              className={`min-h-[36px] px-2.5 py-1.5 text-xs font-semibold rounded-xl border transition-all active:scale-95 ${
+                isSelectMode
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300'
+              }`}
+              title="Activer la sélection multiple"
+            >
+              <span>{isSelectMode ? 'Annuler sélection' : 'Sélection'}</span>
+            </button>
+          </div>
+
           {/* Display Mode Switch */}
           <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-950/80 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs shrink-0">
             <button
@@ -178,6 +328,16 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
             >
               Finis
             </button>
+            <button
+              onClick={() => setFilter('archived')}
+              className={`px-3 py-1.5 min-h-[36px] rounded-lg transition-colors font-medium ${
+                filter === 'archived'
+                  ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm font-semibold'
+                  : 'text-zinc-500 dark:text-zinc-500'
+              }`}
+            >
+              Archivés
+            </button>
           </div>
 
           <button
@@ -208,30 +368,96 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
               termine: { label: 'Terminé', color: 'text-zinc-500 dark:text-zinc-400', barColor: 'bg-indigo-500' }
             }[project.status];
 
+            const isSelected = selectedIds.includes(project.id);
+            const docCount = (project.documents || []).length;
+
             return (
               <div
                 key={project.id}
-                className="bg-zinc-50/80 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col justify-between transition-all duration-150 shadow-sm"
+                className={`bg-zinc-50/80 dark:bg-zinc-950/80 border rounded-2xl p-4 flex flex-col justify-between transition-all duration-150 shadow-sm relative ${
+                  isSelected
+                    ? 'border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30'
+                    : project.isArchived
+                    ? 'opacity-65 border-zinc-300 dark:border-zinc-800'
+                    : 'border-zinc-200 dark:border-zinc-800'
+                }`}
               >
                 <div>
                   <div className="flex items-center justify-between text-xs mb-2">
-                    <span className="text-zinc-500 dark:text-zinc-400 font-semibold">{project.category}</span>
+                    <div className="flex items-center gap-1.5">
+                      {isSelectMode && (
+                        <button
+                          type="button"
+                          onClick={(e) => toggleSelectProject(project.id, e)}
+                          className="mr-1"
+                        >
+                          <div className={`w-4 h-4 rounded flex items-center justify-center border ${
+                            isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-zinc-400'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                        </button>
+                      )}
+                      <span className="text-zinc-500 dark:text-zinc-400 font-semibold">{project.category}</span>
+                      {docCount > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-0.5">
+                          <Paperclip className="w-2.5 h-2.5" />
+                          {docCount}
+                        </span>
+                      )}
+                    </div>
+
                     <div className="flex items-center gap-1.5">
                       <span className={`font-bold ${statusConfig.color}`}>
-                        {statusConfig.label}
+                        {project.isArchived ? 'Archivé' : statusConfig.label}
                       </span>
-                      <button
-                        onClick={() => onDeleteProject(project.id)}
-                        className="min-w-[36px] min-h-[36px] -mr-1.5 -my-1 flex items-center justify-center text-zinc-400 hover:text-red-500 dark:text-zinc-500 dark:hover:text-red-400 transition-colors"
-                        title="Supprimer le projet"
-                        aria-label="Supprimer le projet"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      
+                      {/* Plus d'actions (⋮ ActionMenu) */}
+                      <ActionMenu
+                        title={project.title}
+                        subtitle="Actions sur le projet"
+                        items={[
+                          {
+                            label: 'Modifier',
+                            icon: <Edit3 className="w-4 h-4 text-indigo-500" />,
+                            onClick: () => setEditingProject(project),
+                            variant: 'primary'
+                          },
+                          {
+                            label: 'Dupliquer',
+                            icon: <Copy className="w-4 h-4 text-zinc-500" />,
+                            onClick: () => handleDuplicate(project)
+                          },
+                          {
+                            label: 'Télécharger / Exporter (JSON)',
+                            icon: <Download className="w-4 h-4 text-emerald-500" />,
+                            onClick: () => handleExportSingleProject(project)
+                          },
+                          {
+                            label: project.isArchived ? 'Désarchiver le projet' : 'Archiver le projet',
+                            icon: <Archive className="w-4 h-4 text-amber-500" />,
+                            onClick: () => handleToggleArchive(project)
+                          },
+                          {
+                            label: 'Supprimer',
+                            icon: <Trash2 className="w-4 h-4 text-red-500" />,
+                            onClick: () => {
+                              if (window.confirm('Supprimer ce projet ?')) {
+                                onDeleteProject(project.id);
+                                onNotify('Projet supprimé', 'info');
+                              }
+                            },
+                            variant: 'danger'
+                          }
+                        ]}
+                      />
                     </div>
                   </div>
 
-                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white tracking-tight leading-snug">
+                  <h3 
+                    onClick={() => setEditingProject(project)}
+                    className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white tracking-tight leading-snug cursor-pointer"
+                  >
                     {project.title}
                   </h3>
 
@@ -251,7 +477,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                   )}
                 </div>
 
-                {/* Progress bar + controls with finger-friendly buttons */}
+                {/* Progress bar + controls */}
                 <div className="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-800">
                   <div className="flex items-center justify-between text-xs mb-2">
                     <div className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
@@ -333,19 +559,46 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
               termine: { label: 'Terminé', color: 'text-zinc-500 dark:text-zinc-400', barColor: 'bg-indigo-500' }
             }[project.status];
 
+            const isSelected = selectedIds.includes(project.id);
+            const docCount = (project.documents || []).length;
+
             return (
               <div
                 key={project.id}
-                className="p-3.5 bg-zinc-50/80 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors shadow-sm"
+                className={`p-3.5 bg-zinc-50/80 dark:bg-zinc-950/80 border rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors shadow-sm ${
+                  isSelected ? 'border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30' : 'border-zinc-200 dark:border-zinc-800'
+                }`}
               >
-                <div className="min-w-0 flex-1">
+                <div 
+                  className="min-w-0 flex-1 cursor-pointer"
+                  onClick={() => setEditingProject(project)}
+                >
                   <div className="flex items-center gap-2">
+                    {isSelectMode && (
+                      <button
+                        type="button"
+                        onClick={(e) => toggleSelectProject(project.id, e)}
+                        className="mr-1"
+                      >
+                        <div className={`w-4 h-4 rounded flex items-center justify-center border ${
+                          isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-zinc-400'
+                        }`}>
+                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                      </button>
+                    )}
                     <h3 className="text-sm font-bold text-zinc-900 dark:text-white truncate">
                       {project.title}
                     </h3>
                     <span className="text-xs text-zinc-500 shrink-0">
                       · {project.category}
                     </span>
+                    {docCount > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-0.5 shrink-0">
+                        <Paperclip className="w-2.5 h-2.5" />
+                        {docCount}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
                     {project.description || 'Sans description'}
@@ -355,7 +608,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                 <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
                   <div className="flex items-center gap-2">
                     <span className={`text-xs font-bold ${statusConfig.color}`}>
-                      {statusConfig.label}
+                      {project.isArchived ? 'Archivé' : statusConfig.label}
                     </span>
                     <span className="font-mono text-xs font-bold text-zinc-900 dark:text-white">
                       {project.progress}%
@@ -375,12 +628,45 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                     >
                       +10
                     </button>
-                    <button
-                      onClick={() => onDeleteProject(project.id)}
-                      className="min-w-[36px] min-h-[36px] p-2 text-zinc-400 hover:text-red-500 dark:text-zinc-500 dark:hover:text-red-400 rounded-lg transition-colors flex items-center justify-center"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+
+                    <ActionMenu
+                      title={project.title}
+                      subtitle="Actions sur le projet"
+                      items={[
+                        {
+                          label: 'Modifier',
+                          icon: <Edit3 className="w-4 h-4 text-indigo-500" />,
+                          onClick: () => setEditingProject(project),
+                          variant: 'primary'
+                        },
+                        {
+                          label: 'Dupliquer',
+                          icon: <Copy className="w-4 h-4 text-zinc-500" />,
+                          onClick: () => handleDuplicate(project)
+                        },
+                        {
+                          label: 'Télécharger / Exporter (JSON)',
+                          icon: <Download className="w-4 h-4 text-emerald-500" />,
+                          onClick: () => handleExportSingleProject(project)
+                        },
+                        {
+                          label: project.isArchived ? 'Désarchiver' : 'Archiver',
+                          icon: <Archive className="w-4 h-4 text-amber-500" />,
+                          onClick: () => handleToggleArchive(project)
+                        },
+                        {
+                          label: 'Supprimer',
+                          icon: <Trash2 className="w-4 h-4 text-red-500" />,
+                          onClick: () => {
+                            if (window.confirm('Supprimer ce projet ?')) {
+                              onDeleteProject(project.id);
+                              onNotify('Projet supprimé', 'info');
+                            }
+                          },
+                          variant: 'danger'
+                        }
+                      ]}
+                    />
                   </div>
                 </div>
               </div>
@@ -512,6 +798,28 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
           </div>
         </div>
       )}
+
+      {/* Full Edit Modal */}
+      <EditProjectModal
+        isOpen={!!editingProject}
+        onClose={() => setEditingProject(null)}
+        project={editingProject}
+        onSaveProject={onUpdateProject}
+        onDeleteProject={onDeleteProject}
+        onDuplicateProject={handleDuplicate}
+        onNotify={onNotify}
+      />
+
+      {/* Floating Bulk Action Bar */}
+      <BulkActionBar
+        selectedCount={selectedIds.length}
+        totalCount={filteredProjects.length}
+        onSelectAll={handleSelectAll}
+        onClearSelection={handleClearSelection}
+        onExportSelected={handleExportSelected}
+        onDeleteSelected={handleDeleteSelected}
+        itemLabel="projets"
+      />
     </div>
   );
 };

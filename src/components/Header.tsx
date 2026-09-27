@@ -2,19 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { 
   Search, 
   Download, 
+  Upload, 
   Plus, 
-  Layers,
-  Calendar,
-  Sun,
-  Moon,
-  LayoutGrid,
-  List,
-  Maximize2,
-  Minimize2,
-  Smartphone,
-  CheckCircle2
+  Layers, 
+  Calendar, 
+  Sun, 
+  Moon, 
+  LayoutGrid, 
+  List, 
+  Maximize2, 
+  Minimize2, 
+  Smartphone, 
+  CheckCircle2, 
+  Settings, 
+  Database 
 } from 'lucide-react';
 import { DisplayMode, ThemeMode } from '../types';
+import { ActionMenu } from './ActionMenu';
 
 interface HeaderProps {
   activeTab: 'all' | 'tasks' | 'projects' | 'links' | 'notes';
@@ -26,6 +30,7 @@ interface HeaderProps {
   theme: ThemeMode;
   onToggleTheme: () => void;
   onOpenExportModal: () => void;
+  onOpenImportModal: () => void;
   onQuickNewItem: () => void;
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
@@ -44,6 +49,7 @@ export const Header: React.FC<HeaderProps> = ({
   theme,
   onToggleTheme,
   onOpenExportModal,
+  onOpenImportModal,
   onQuickNewItem,
   isFullscreen,
   onToggleFullscreen,
@@ -83,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
                 <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span className="hidden xs:inline">Actif</span>
+                  <span className="hidden xs:inline">En direct</span>
                 </span>
               </div>
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1 capitalize leading-tight">
@@ -101,7 +107,7 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => setActiveTab('all')}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                 activeTab === 'all'
-                  ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
+                  ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm font-semibold'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
               }`}
             >
@@ -111,7 +117,7 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => setActiveTab('tasks')}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                 activeTab === 'tasks'
-                  ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
+                  ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm font-semibold'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
               }`}
             >
@@ -121,7 +127,7 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => setActiveTab('projects')}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                 activeTab === 'projects'
-                  ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
+                  ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm font-semibold'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
               }`}
             >
@@ -131,7 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => setActiveTab('links')}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                 activeTab === 'links'
-                  ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
+                  ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm font-semibold'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
               }`}
             >
@@ -141,7 +147,7 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => setActiveTab('notes')}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                 activeTab === 'notes'
-                  ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
+                  ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm font-semibold'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
               }`}
             >
@@ -153,14 +159,14 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-1 sm:gap-2">
             
             {/* Desktop / Tablet Search Input */}
-            <div className="hidden sm:block relative w-36 md:w-52">
+            <div className="hidden sm:block relative w-36 md:w-48">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Rechercher..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg pl-8 pr-6 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                className="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg pl-8 pr-6 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-indigo-500 transition-colors"
               />
               {searchQuery && (
                 <button
@@ -173,7 +179,7 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
 
-            {/* Mobile Search Toggle Icon Button */}
+            {/* Mobile Search Toggle Button */}
             <button
               onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
               aria-label="Rechercher"
@@ -186,7 +192,7 @@ export const Header: React.FC<HeaderProps> = ({
               <Search className="w-4 h-4" />
             </button>
 
-            {/* FULLSCREEN TOGGLE BUTTON - Clearly Visible as Requested */}
+            {/* FULLSCREEN TOGGLE BUTTON */}
             <button
               onClick={onToggleFullscreen}
               aria-label={isFullscreen ? 'Quitter le plein écran' : 'Passer en plein écran'}
@@ -210,24 +216,24 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </button>
 
-            {/* PWA INSTALL BUTTON (if available and not standalone) */}
+            {/* PWA INSTALL BUTTON */}
             {isInstallable && !isInstalled && onInstallApp && (
               <button
                 onClick={onInstallApp}
                 aria-label="Installer l'application"
-                className="min-w-[40px] min-h-[40px] px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 active:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5 shrink-0 transition-transform active:scale-95 animate-pulse"
+                className="min-w-[40px] min-h-[40px] px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 active:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5 shrink-0 transition-transform active:scale-95"
                 title="Installer sur l'écran d'accueil"
               >
                 <Smartphone className="w-4 h-4" />
-                <span className="hidden md:inline">Installer l'app</span>
+                <span className="hidden md:inline">Installer</span>
               </button>
             )}
 
-            {/* Display Mode Toggle (Cartes / Liste) */}
+            {/* Desktop Display Mode Toggle */}
             <button
               onClick={onToggleDisplayMode}
               aria-label={displayMode === 'cards' ? 'Passer en Mode Liste' : 'Passer en Mode Cartes'}
-              className="min-w-[40px] min-h-[40px] px-2 sm:px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 active:bg-zinc-300 dark:active:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-800 transition-colors flex items-center justify-center gap-1.5 shrink-0 active:scale-95"
+              className="hidden sm:flex min-w-[40px] min-h-[40px] px-2 sm:px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-800 transition-colors items-center justify-center gap-1.5 shrink-0 active:scale-95"
               title={displayMode === 'cards' ? 'Mode Liste' : 'Mode Cartes'}
             >
               {displayMode === 'cards' ? (
@@ -243,11 +249,11 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </button>
 
-            {/* Theme Toggle (Clair / Sombre) */}
+            {/* Desktop Theme Toggle */}
             <button
               onClick={onToggleTheme}
               aria-label={theme === 'dark' ? 'Activer mode clair' : 'Activer mode sombre'}
-              className="min-w-[40px] min-h-[40px] px-2 sm:px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 active:bg-zinc-300 dark:active:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-800 transition-colors flex items-center justify-center gap-1.5 shrink-0 active:scale-95"
+              className="hidden sm:flex min-w-[40px] min-h-[40px] px-2 sm:px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-800 transition-colors items-center justify-center gap-1.5 shrink-0 active:scale-95"
               title={theme === 'dark' ? 'Passer en Mode Clair' : 'Passer en Mode Sombre'}
             >
               {theme === 'dark' ? (
@@ -263,22 +269,64 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </button>
 
-            {/* Backup / Export */}
+            {/* Desktop Import Button */}
             <button
-              onClick={onOpenExportModal}
-              aria-label="Sauvegarde et Exportation"
-              title="Sauvegarde & Export"
-              className="min-w-[40px] min-h-[40px] px-2 sm:px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 active:bg-zinc-300 dark:active:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-800 transition-colors flex items-center justify-center gap-1.5 shrink-0 active:scale-95"
+              onClick={onOpenImportModal}
+              title="Importer des données (CSV / JSON)"
+              aria-label="Importer"
+              className="hidden md:flex min-w-[40px] min-h-[40px] px-2.5 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-800 items-center justify-center gap-1.5 shrink-0 active:scale-95 transition-all"
             >
-              <Download className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
-              <span className="hidden md:inline">Export</span>
+              <Upload className="w-3.5 h-3.5 text-indigo-500" />
+              <span>Importer</span>
             </button>
 
-            {/* Quick Add Button (Desktop & Tablet) */}
+            {/* Desktop Export Button */}
+            <button
+              onClick={onOpenExportModal}
+              title="Exporter & Sauvegarder"
+              aria-label="Exporter"
+              className="hidden sm:flex min-w-[40px] min-h-[40px] px-2.5 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-800 items-center justify-center gap-1.5 shrink-0 active:scale-95 transition-all"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Exporter</span>
+            </button>
+
+            {/* Mobile / Compact « Plus » Options Menu */}
+            <div className="sm:hidden">
+              <ActionMenu
+                title="Options Espace Num"
+                subtitle="Gestion globale & Préférences"
+                items={[
+                  {
+                    label: 'Importer des fichiers (CSV / JSON)',
+                    icon: <Upload className="w-4 h-4 text-indigo-500" />,
+                    onClick: onOpenImportModal,
+                    variant: 'primary'
+                  },
+                  {
+                    label: 'Exporter & Sauvegarder',
+                    icon: <Download className="w-4 h-4 text-emerald-500" />,
+                    onClick: onOpenExportModal
+                  },
+                  {
+                    label: displayMode === 'cards' ? 'Passer en Mode Liste' : 'Passer en Modèle Cartes',
+                    icon: displayMode === 'cards' ? <List className="w-4 h-4 text-zinc-500" /> : <LayoutGrid className="w-4 h-4 text-zinc-500" />,
+                    onClick: onToggleDisplayMode
+                  },
+                  {
+                    label: theme === 'dark' ? 'Activer le Thème Clair' : 'Activer le Thème Sombre',
+                    icon: theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-zinc-400" />,
+                    onClick: onToggleTheme
+                  }
+                ]}
+              />
+            </div>
+
+            {/* Quick Add Button */}
             <button
               onClick={onQuickNewItem}
               aria-label="Ajouter un élément"
-              className="min-w-[40px] min-h-[40px] px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-sm shrink-0 active:scale-95"
+              className="min-w-[40px] min-h-[40px] px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm shrink-0 active:scale-95"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span className="hidden sm:inline">Ajouter</span>
@@ -295,7 +343,7 @@ export const Header: React.FC<HeaderProps> = ({
               <input
                 type="text"
                 autoFocus
-                placeholder="Rechercher dans vos tâches, projets, liens..."
+                placeholder="Rechercher tâches, projets, liens..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl pl-9 pr-8 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-indigo-500"

@@ -6,20 +6,31 @@ import {
   Star, 
   Plus, 
   Trash2, 
-  Globe,
-  LayoutGrid,
-  List
+  Globe, 
+  LayoutGrid, 
+  List, 
+  Upload, 
+  Download, 
+  Edit3, 
+  Paperclip 
 } from 'lucide-react';
 import { ResourceLink, DisplayMode } from '../types';
+import { ActionMenu } from './ActionMenu';
+import { EditLinkModal } from './EditLinkModal';
+import { BulkActionBar } from './BulkActionBar';
+import { downloadFile, arrayToCSV } from '../utils/fileHelpers';
 
 interface LinksSectionProps {
   links: ResourceLink[];
   searchQuery: string;
   displayMode?: DisplayMode;
   onAddLink: (link: Omit<ResourceLink, 'id' | 'clicks'>) => void;
+  onUpdateLink: (link: ResourceLink) => void;
   onToggleFavorite: (id: string) => void;
   onIncrementClicks: (id: string) => void;
   onDeleteLink: (id: string) => void;
+  onImportLinksRequest?: () => void;
+  onNotify: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
 
 export const LinksSection: React.FC<LinksSectionProps> = ({
@@ -27,14 +38,24 @@ export const LinksSection: React.FC<LinksSectionProps> = ({
   searchQuery,
   displayMode: initialDisplayMode = 'list',
   onAddLink,
+  onUpdateLink,
   onToggleFavorite,
   onIncrementClicks,
-  onDeleteLink
+  onDeleteLink,
+  onImportLinksRequest,
+  onNotify
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [localDisplayMode, setLocalDisplayMode] = useState<DisplayMode>(initialDisplayMode);
+
+  // Edit Modal State
+  const [editingLink, setEditingLink] = useState<ResourceLink | null>(null);
+
+  // Multi-Selection State
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   React.useEffect(() => {
     if (initialDisplayMode) {
@@ -54,6 +75,7 @@ export const LinksSection: React.FC<LinksSectionProps> = ({
   const handleCopy = (id: string, linkUrl: string) => {
     navigator.clipboard.writeText(linkUrl);
     setCopiedId(id);
+    onNotify('Adresse URL copiée dans le presse-papiers', 'success');
     setTimeout(() => setCopiedId(null), 1800);
   };
 
@@ -71,13 +93,35 @@ export const LinksSection: React.FC<LinksSectionProps> = ({
       url: formattedUrl,
       category: category.trim() || 'Général',
       description: description.trim(),
-      isFavorite
+      isFavorite,
+      tags: [],
+      documents: []
     });
 
     setTitle('');
     setUrl('');
     setDescription('');
     setIsModalOpen(false);
+    onNotify('Lien ajouté avec succès', 'success');
+  };
+
+  const handleDuplicate = (l: ResourceLink) => {
+    onAddLink({
+      title: l.title + ' (Copie)',
+      url: l.url,
+      category: l.category,
+      description: l.description,
+      isFavorite: l.isFavorite,
+      tags: l.tags ? [...l.tags] : [],
+      documents: l.documents ? [...l.documents] : []
+    });
+    onNotify('Lien dupliqué avec succès', 'success');
+  };
+
+  const handleExportSingleLink = (l: ResourceLink) => {
+    const jsonStr = JSON.stringify(l, null, 2);
+    downloadFile(jsonStr, `lien-${l.id}.json`, 'application/json');
+    onNotify('Données du lien exportées en JSON', 'info');
   };
 
   const filteredLinks = links.filter(link => {
@@ -94,6 +138,53 @@ export const LinksSection: React.FC<LinksSectionProps> = ({
     if (selectedCategory === 'favorites') return link.isFavorite;
     return link.category === selectedCategory;
   });
+
+  // Multi-Selection Handlers
+  const toggleSelectLink = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    setSelectedIds(filteredLinks.map(l => l.id));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds([]);
+    setIsSelectMode(false);
+  };
+
+  const handleExportSelected = () => {
+    const selectedLinks = links.filter(l => selectedIds.includes(l.id));
+    const jsonStr = JSON.stringify(selectedLinks, null, 2);
+    downloadFile(jsonStr, `selection-liens-${Date.now()}.json`, 'application/json');
+    onNotify(`${selectedLinks.length} liens exportés`, 'success');
+  };
+
+  const handleDeleteSelected = () => {
+    if (window.confirm(`Supprimer définitivement les ${selectedIds.length} liens sélectionnés ?`)) {
+      selectedIds.forEach(id => onDeleteLink(id));
+      onNotify(`${selectedIds.length} liens supprimés`, 'info');
+      handleClearSelection();
+    }
+  };
+
+  // Export current list
+  const handleExportSection = () => {
+    const csvContent = arrayToCSV(filteredLinks.map(l => ({
+      Titre: l.title,
+      URL: l.url,
+      Catégorie: l.category,
+      Favori: l.isFavorite ? 'Oui' : 'Non',
+      Clics: l.clicks,
+      Documents: (l.documents || []).length,
+      Description: l.description
+    })));
+    downloadFile(csvContent, `liens-${selectedCategory}-${Date.now()}.csv`, 'text/csv;charset=utf-8');
+    onNotify('Liste des liens exportée au format CSV', 'info');
+  };
 
   return (
     <div className="bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800/90 rounded-2xl p-3.5 sm:p-5 flex flex-col h-full shadow-sm dark:shadow-none transition-colors duration-200">
@@ -112,7 +203,49 @@ export const LinksSection: React.FC<LinksSectionProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+          {/* Action buttons: Importer / Exporter */}
+          <div className="flex items-center gap-1">
+            {onImportLinksRequest && (
+              <button
+                type="button"
+                onClick={onImportLinksRequest}
+                className="min-h-[36px] px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1.5 active:scale-95 transition-all"
+                title="Importer des liens (CSV ou JSON)"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span className="hidden xs:inline">Importer</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleExportSection}
+              className="min-h-[36px] px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1.5 active:scale-95 transition-all"
+              title="Exporter les liens affichés"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">Exporter</span>
+            </button>
+
+            {/* Multi-selection toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsSelectMode(!isSelectMode);
+                if (isSelectMode) setSelectedIds([]);
+              }}
+              className={`min-h-[36px] px-2.5 py-1.5 text-xs font-semibold rounded-xl border transition-all active:scale-95 ${
+                isSelectMode
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300'
+              }`}
+              title="Activer la sélection multiple"
+            >
+              <span>{isSelectMode ? 'Annuler sélection' : 'Sélection'}</span>
+            </button>
+          </div>
+
           {/* Display Mode Switch */}
           <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-950/80 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs shrink-0">
             <button
@@ -190,133 +323,271 @@ export const LinksSection: React.FC<LinksSectionProps> = ({
       ) : localDisplayMode === 'cards' ? (
         /* MODÈLE CARTES */
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto max-h-[500px] pr-0.5 flex-1">
-          {filteredLinks.map((link) => (
-            <div
-              key={link.id}
-              className="bg-zinc-50/80 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col justify-between transition-all duration-150 shadow-sm"
-            >
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-[11px] font-semibold text-zinc-500">
-                    {link.category}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => onToggleFavorite(link.id)}
-                      className="min-w-[36px] min-h-[36px] flex items-center justify-center text-zinc-400 hover:text-amber-500 transition-colors"
-                      title={link.isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-                      aria-label="Favori"
-                    >
-                      <Star className={`w-4 h-4 ${link.isFavorite ? 'text-amber-500 fill-amber-500' : ''}`} />
-                    </button>
-                    <button
-                      onClick={() => onDeleteLink(link.id)}
-                      className="min-w-[36px] min-h-[36px] flex items-center justify-center text-zinc-400 hover:text-red-500 transition-colors"
-                      title="Supprimer le lien"
-                      aria-label="Supprimer le lien"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+          {filteredLinks.map((link) => {
+            const isSelected = selectedIds.includes(link.id);
+            const docCount = (link.documents || []).length;
+
+            return (
+              <div
+                key={link.id}
+                className={`bg-zinc-50/80 dark:bg-zinc-950/80 border rounded-2xl p-4 flex flex-col justify-between transition-all duration-150 shadow-sm relative ${
+                  isSelected ? 'border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30' : 'border-zinc-200 dark:border-zinc-800'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      {isSelectMode && (
+                        <button
+                          type="button"
+                          onClick={(e) => toggleSelectLink(link.id, e)}
+                          className="mr-1"
+                        >
+                          <div className={`w-4 h-4 rounded flex items-center justify-center border ${
+                            isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-zinc-400'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                        </button>
+                      )}
+                      <span className="text-[11px] font-semibold text-zinc-500">
+                        {link.category}
+                      </span>
+                      {docCount > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-0.5">
+                          <Paperclip className="w-2.5 h-2.5" />
+                          {docCount}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => onToggleFavorite(link.id)}
+                        className="min-w-[36px] min-h-[36px] flex items-center justify-center text-zinc-400 hover:text-amber-500 transition-colors"
+                        title={link.isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                        aria-label="Favori"
+                      >
+                        <Star className={`w-4 h-4 ${link.isFavorite ? 'text-amber-500 fill-amber-500' : ''}`} />
+                      </button>
+
+                      {/* Plus d'actions (⋮ ActionMenu) */}
+                      <ActionMenu
+                        title={link.title}
+                        subtitle="Actions sur le lien"
+                        items={[
+                          {
+                            label: 'Ouvrir dans un nouvel onglet',
+                            icon: <ExternalLink className="w-4 h-4 text-indigo-500" />,
+                            onClick: () => {
+                              window.open(link.url, '_blank', 'noopener,noreferrer');
+                              onIncrementClicks(link.id);
+                            },
+                            variant: 'primary'
+                          },
+                          {
+                            label: 'Modifier',
+                            icon: <Edit3 className="w-4 h-4 text-zinc-500" />,
+                            onClick: () => setEditingLink(link)
+                          },
+                          {
+                            label: 'Copier l\'URL',
+                            icon: <Copy className="w-4 h-4 text-zinc-500" />,
+                            onClick: () => handleCopy(link.id, link.url)
+                          },
+                          {
+                            label: link.isFavorite ? 'Retirer des favoris' : 'Épingler aux favoris',
+                            icon: <Star className="w-4 h-4 text-amber-500" />,
+                            onClick: () => onToggleFavorite(link.id)
+                          },
+                          {
+                            label: 'Dupliquer',
+                            icon: <Copy className="w-4 h-4 text-zinc-500" />,
+                            onClick: () => handleDuplicate(link)
+                          },
+                          {
+                            label: 'Télécharger / Exporter (JSON)',
+                            icon: <Download className="w-4 h-4 text-emerald-500" />,
+                            onClick: () => handleExportSingleLink(link)
+                          },
+                          {
+                            label: 'Supprimer',
+                            icon: <Trash2 className="w-4 h-4 text-red-500" />,
+                            onClick: () => {
+                              if (window.confirm('Supprimer ce lien ?')) {
+                                onDeleteLink(link.id);
+                                onNotify('Lien supprimé', 'info');
+                              }
+                            },
+                            variant: 'danger'
+                          }
+                        ]}
+                      />
+                    </div>
                   </div>
+
+                  <h3 
+                    onClick={() => setEditingLink(link)}
+                    className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white tracking-tight leading-snug cursor-pointer"
+                  >
+                    {link.title}
+                  </h3>
+
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2">
+                    {link.description || link.url}
+                  </p>
                 </div>
 
-                <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white tracking-tight leading-snug">
-                  {link.title}
-                </h3>
+                <div className="flex items-center justify-between pt-3 mt-3 border-t border-zinc-200 dark:border-zinc-800 text-xs">
+                  <button
+                    onClick={() => handleCopy(link.id, link.url)}
+                    className="min-h-[36px] px-2.5 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded-lg flex items-center gap-1.5 transition-colors active:scale-95"
+                  >
+                    {copiedId === link.id ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        <span className="text-emerald-500 font-semibold">Copié !</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copier URL</span>
+                      </>
+                    )}
+                  </button>
 
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2">
-                  {link.description || link.url}
-                </p>
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => onIncrementClicks(link.id)}
+                    className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white font-semibold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                  >
+                    <span>Ouvrir</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
               </div>
-
-              <div className="flex items-center justify-between pt-3 mt-3 border-t border-zinc-200 dark:border-zinc-800 text-xs">
-                <button
-                  onClick={() => handleCopy(link.id, link.url)}
-                  className="min-h-[36px] px-2.5 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded-lg flex items-center gap-1.5 transition-colors active:scale-95"
-                >
-                  {copiedId === link.id ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-500" />
-                      <span className="text-emerald-500 font-semibold">Copié !</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copier URL</span>
-                    </>
-                  )}
-                </button>
-
-                <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => onIncrementClicks(link.id)}
-                  className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white font-semibold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
-                >
-                  <span>Ouvrir</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         /* MODE LISTE */
         <div className="space-y-2 overflow-y-auto max-h-[500px] pr-0.5">
-          {filteredLinks.map((link) => (
-            <div
-              key={link.id}
-              className="p-3 bg-zinc-50/80 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 rounded-xl flex items-center justify-between gap-2.5 transition-colors shadow-sm"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-zinc-900 dark:text-white truncate">
-                    {link.title}
-                  </h3>
-                  <span className="text-xs text-zinc-500 shrink-0">
-                    · {link.category}
-                  </span>
+          {filteredLinks.map((link) => {
+            const isSelected = selectedIds.includes(link.id);
+            const docCount = (link.documents || []).length;
+
+            return (
+              <div
+                key={link.id}
+                className={`p-3 bg-zinc-50/80 dark:bg-zinc-950/80 border rounded-xl flex items-center justify-between gap-2.5 transition-colors shadow-sm ${
+                  isSelected ? 'border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30' : 'border-zinc-200 dark:border-zinc-800'
+                }`}
+              >
+                <div 
+                  className="min-w-0 flex-1 cursor-pointer"
+                  onClick={() => setEditingLink(link)}
+                >
+                  <div className="flex items-center gap-2">
+                    {isSelectMode && (
+                      <button
+                        type="button"
+                        onClick={(e) => toggleSelectLink(link.id, e)}
+                        className="mr-1"
+                      >
+                        <div className={`w-4 h-4 rounded flex items-center justify-center border ${
+                          isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-zinc-400'
+                        }`}>
+                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                      </button>
+                    )}
+                    <h3 className="text-sm font-bold text-zinc-900 dark:text-white truncate">
+                      {link.title}
+                    </h3>
+                    <span className="text-xs text-zinc-500 shrink-0">
+                      · {link.category}
+                    </span>
+                    {docCount > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-0.5 shrink-0">
+                        <Paperclip className="w-2.5 h-2.5" />
+                        {docCount}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-zinc-500 truncate mt-0.5">
+                    {link.url}
+                  </p>
                 </div>
-                <p className="text-xs text-zinc-500 truncate mt-0.5">
-                  {link.url}
-                </p>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => handleCopy(link.id, link.url)}
+                    className="min-w-[40px] min-h-[40px] flex items-center justify-center text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-lg active:scale-95"
+                    title="Copier le lien"
+                  >
+                    {copiedId === link.id ? (
+                      <Check className="w-4 h-4 text-emerald-500" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => onIncrementClicks(link.id)}
+                    className="min-w-[40px] min-h-[40px] flex items-center justify-center text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg active:scale-95"
+                    title="Ouvrir dans un nouvel onglet"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+
+                  {/* Plus d'actions (⋮ ActionMenu) */}
+                  <ActionMenu
+                    title={link.title}
+                    subtitle="Actions sur le lien"
+                    items={[
+                      {
+                        label: 'Modifier',
+                        icon: <Edit3 className="w-4 h-4 text-indigo-500" />,
+                        onClick: () => setEditingLink(link),
+                        variant: 'primary'
+                      },
+                      {
+                        label: 'Dupliquer',
+                        icon: <Copy className="w-4 h-4 text-zinc-500" />,
+                        onClick: () => handleDuplicate(link)
+                      },
+                      {
+                        label: link.isFavorite ? 'Retirer des favoris' : 'Épingler aux favoris',
+                        icon: <Star className="w-4 h-4 text-amber-500" />,
+                        onClick: () => onToggleFavorite(link.id)
+                      },
+                      {
+                        label: 'Télécharger / Exporter (JSON)',
+                        icon: <Download className="w-4 h-4 text-emerald-500" />,
+                        onClick: () => handleExportSingleLink(link)
+                      },
+                      {
+                        label: 'Supprimer',
+                        icon: <Trash2 className="w-4 h-4 text-red-500" />,
+                        onClick: () => {
+                          if (window.confirm('Supprimer ce lien ?')) {
+                            onDeleteLink(link.id);
+                            onNotify('Lien supprimé', 'info');
+                          }
+                        },
+                        variant: 'danger'
+                      }
+                    ]}
+                  />
+                </div>
               </div>
-
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  onClick={() => handleCopy(link.id, link.url)}
-                  className="min-w-[40px] min-h-[40px] flex items-center justify-center text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-lg active:scale-95"
-                  title="Copier le lien"
-                >
-                  {copiedId === link.id ? (
-                    <Check className="w-4 h-4 text-emerald-500" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                </button>
-
-                <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => onIncrementClicks(link.id)}
-                  className="min-w-[40px] min-h-[40px] flex items-center justify-center text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg active:scale-95"
-                  title="Ouvrir dans un nouvel onglet"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-
-                <button
-                  onClick={() => onDeleteLink(link.id)}
-                  className="min-w-[40px] min-h-[40px] flex items-center justify-center text-zinc-400 hover:text-red-500 dark:text-zinc-500 dark:hover:text-red-400 rounded-lg active:scale-95"
-                  title="Supprimer"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -355,7 +626,7 @@ export const LinksSection: React.FC<LinksSectionProps> = ({
                   placeholder="https://..."
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-base sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-base sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-indigo-500 font-mono text-xs"
                 />
               </div>
 
@@ -413,6 +684,28 @@ export const LinksSection: React.FC<LinksSectionProps> = ({
           </div>
         </div>
       )}
+
+      {/* Full Edit Modal */}
+      <EditLinkModal
+        isOpen={!!editingLink}
+        onClose={() => setEditingLink(null)}
+        link={editingLink}
+        onSaveLink={onUpdateLink}
+        onDeleteLink={onDeleteLink}
+        onDuplicateLink={handleDuplicate}
+        onNotify={onNotify}
+      />
+
+      {/* Floating Bulk Action Bar */}
+      <BulkActionBar
+        selectedCount={selectedIds.length}
+        totalCount={filteredLinks.length}
+        onSelectAll={handleSelectAll}
+        onClearSelection={handleClearSelection}
+        onExportSelected={handleExportSelected}
+        onDeleteSelected={handleDeleteSelected}
+        itemLabel="liens"
+      />
     </div>
   );
 };

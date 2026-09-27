@@ -4,6 +4,15 @@ export type NoteColor = 'zinc' | 'amber' | 'emerald' | 'blue' | 'purple' | 'rose
 export type DisplayMode = 'cards' | 'list';
 export type ThemeMode = 'dark' | 'light';
 
+export interface AttachedFile {
+  id: string;
+  name: string;
+  size: number; // in bytes
+  type: string;
+  dataUrl: string; // base64 string
+  uploadedAt: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -12,6 +21,9 @@ export interface Task {
   isToday: boolean;
   dueDate?: string;
   projectId?: string;
+  description?: string;
+  notes?: string;
+  documents?: AttachedFile[];
   createdAt: string;
   completedAt?: string;
 }
@@ -25,6 +37,10 @@ export interface Project {
   progress: number; // 0 to 100
   dueDate: string;
   tags: string[];
+  notes?: string;
+  isArchived?: boolean;
+  documents?: AttachedFile[];
+  createdAt?: string;
 }
 
 export interface ResourceLink {
@@ -35,6 +51,9 @@ export interface ResourceLink {
   description: string;
   isFavorite: boolean;
   clicks: number;
+  tags?: string[];
+  documents?: AttachedFile[];
+  createdAt?: string;
 }
 
 export interface QuickNote {
@@ -44,6 +63,8 @@ export interface QuickNote {
   isPinned: boolean;
   color: NoteColor;
   updatedAt: string;
+  tags?: string[];
+  documents?: AttachedFile[];
 }
 
 export interface AppData {
@@ -51,4 +72,10 @@ export interface AppData {
   projects: Project[];
   links: ResourceLink[];
   notes: QuickNote[];
+}
+
+export interface ToastNotification {
+  id: string;
+  message: string;
+  type?: 'success' | 'info' | 'error' | 'warning';
 }

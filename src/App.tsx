@@ -13,7 +13,8 @@ import {
   Priority, 
   ProjectStatus, 
   DisplayMode, 
-  ThemeMode 
+  ThemeMode,
+  ToastNotification
 } from './types';
 import { loadStoredData, saveStoredData, initialData } from './utils/storage';
 import { Header } from './components/Header';
@@ -23,8 +24,10 @@ import { ProjectsSection } from './components/ProjectsSection';
 import { LinksSection } from './components/LinksSection';
 import { NotesSection } from './components/NotesSection';
 import { ExportModal } from './components/ExportModal';
+import { SafeImportModal } from './components/SafeImportModal';
 import { QuickAddModal } from './components/QuickAddModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { ToastContainer } from './components/ToastContainer';
 import { useFullscreen } from './hooks/useFullscreen';
 import { usePWAInstall } from './hooks/usePWAInstall';
 
@@ -33,8 +36,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'all' | 'tasks' | 'projects' | 'links' | 'notes'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importTargetCategory, setImportTargetCategory] = useState<'all' | 'tasks' | 'projects' | 'links' | 'notes'>('all');
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
+  const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
   // Fullscreen hook
   const { isFullscreen, toggleFullscreen } = useFullscreen();
@@ -61,6 +67,30 @@ export default function App() {
       return 'cards';
     }
   });
+
+  // Notifications handler
+  const handleNotify = (message: string, type: 'success' | 'info' | 'error' | 'warning' = 'success') => {
+    const id = 'toast-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3500);
+  };
+
+  const handleDismissToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
+  // Open import modal with specific category focus
+  const handleOpenImport = (category: 'all' | 'tasks' | 'projects' | 'links' | 'notes' = 'all') => {
+    setImportTargetCategory(category);
+    setIsImportModalOpen(true);
+  };
+
+  // Apply imported data safely
+  const handleApplyImport = (updatedData: AppData) => {
+    setData(updatedData);
+  };
 
   // Apply theme to document element
   useEffect(() => {
@@ -126,6 +156,13 @@ export default function App() {
     }));
   };
 
+  const handleUpdateTask = (updatedTask: Task) => {
+    setData(prev => ({
+      ...prev,
+      tasks: prev.tasks.map(t => t.id === updatedTask.id ? updatedTask : t)
+    }));
+  };
+
   const handleToggleTask = (id: string) => {
     setData(prev => ({
       ...prev,
@@ -159,11 +196,19 @@ export default function App() {
   const handleAddProject = (newProj: Omit<Project, 'id'>) => {
     const proj: Project = {
       ...newProj,
-      id: 'proj-' + Date.now()
+      id: 'proj-' + Date.now(),
+      createdAt: new Date().toISOString()
     };
     setData(prev => ({
       ...prev,
       projects: [proj, ...prev.projects]
+    }));
+  };
+
+  const handleUpdateProject = (updatedProj: Project) => {
+    setData(prev => ({
+      ...prev,
+      projects: prev.projects.map(p => p.id === updatedProj.id ? updatedProj : p)
     }));
   };
 
@@ -203,11 +248,19 @@ export default function App() {
     const link: ResourceLink = {
       ...newLink,
       id: 'link-' + Date.now(),
-      clicks: 0
+      clicks: 0,
+      createdAt: new Date().toISOString()
     };
     setData(prev => ({
       ...prev,
       links: [link, ...prev.links]
+    }));
+  };
+
+  const handleUpdateLink = (updatedLink: ResourceLink) => {
+    setData(prev => ({
+      ...prev,
+      links: prev.links.map(l => l.id === updatedLink.id ? updatedLink : l)
     }));
   };
 
@@ -268,11 +321,7 @@ export default function App() {
     }));
   };
 
-  // Import & Reset
-  const handleImportData = (imported: AppData) => {
-    setData(imported);
-  };
-
+  // Reset Data
   const handleResetData = () => {
     setData(initialData);
   };
@@ -283,7 +332,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col antialiased selection:bg-indigo-500/30 selection:text-indigo-200 transition-colors duration-200 overflow-x-hidden">
       
-      {/* Top Bar with Fullscreen and PWA Controls */}
+      {/* Top Bar with Fullscreen, PWA Controls, and Global Import/Export */}
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -294,6 +343,7 @@ export default function App() {
         theme={theme}
         onToggleTheme={handleToggleTheme}
         onOpenExportModal={() => setIsExportModalOpen(true)}
+        onOpenImportModal={() => handleOpenImport('all')}
         onQuickNewItem={() => setIsQuickAddOpen(true)}
         isFullscreen={isFullscreen}
         onToggleFullscreen={toggleFullscreen}
@@ -322,9 +372,12 @@ export default function App() {
                 searchQuery={searchQuery}
                 displayMode={displayMode}
                 onAddTask={handleAddTask}
+                onUpdateTask={handleUpdateTask}
                 onToggleTask={handleToggleTask}
                 onDeleteTask={handleDeleteTask}
                 onClearCompleted={handleClearCompletedTasks}
+                onImportTasksRequest={() => handleOpenImport('tasks')}
+                onNotify={handleNotify}
               />
 
               <ProjectsSection
@@ -332,9 +385,12 @@ export default function App() {
                 searchQuery={searchQuery}
                 displayMode={displayMode}
                 onAddProject={handleAddProject}
+                onUpdateProject={handleUpdateProject}
                 onUpdateProjectProgress={handleUpdateProjectProgress}
                 onUpdateProjectStatus={handleUpdateProjectStatus}
                 onDeleteProject={handleDeleteProject}
+                onImportProjectsRequest={() => handleOpenImport('projects')}
+                onNotify={handleNotify}
               />
             </div>
 
@@ -345,9 +401,12 @@ export default function App() {
                 searchQuery={searchQuery}
                 displayMode={displayMode}
                 onAddLink={handleAddLink}
+                onUpdateLink={handleUpdateLink}
                 onToggleFavorite={handleToggleFavoriteLink}
                 onIncrementClicks={handleIncrementLinkClicks}
                 onDeleteLink={handleDeleteLink}
+                onImportLinksRequest={() => handleOpenImport('links')}
+                onNotify={handleNotify}
               />
 
               <NotesSection
@@ -358,6 +417,8 @@ export default function App() {
                 onUpdateNote={handleUpdateNote}
                 onDeleteNote={handleDeleteNote}
                 onTogglePin={handleTogglePinNote}
+                onImportNotesRequest={() => handleOpenImport('notes')}
+                onNotify={handleNotify}
               />
             </div>
           </div>
@@ -371,9 +432,12 @@ export default function App() {
               searchQuery={searchQuery}
               displayMode={displayMode}
               onAddTask={handleAddTask}
+              onUpdateTask={handleUpdateTask}
               onToggleTask={handleToggleTask}
               onDeleteTask={handleDeleteTask}
               onClearCompleted={handleClearCompletedTasks}
+              onImportTasksRequest={() => handleOpenImport('tasks')}
+              onNotify={handleNotify}
             />
           </div>
         )}
@@ -385,9 +449,12 @@ export default function App() {
               searchQuery={searchQuery}
               displayMode={displayMode}
               onAddProject={handleAddProject}
+              onUpdateProject={handleUpdateProject}
               onUpdateProjectProgress={handleUpdateProjectProgress}
               onUpdateProjectStatus={handleUpdateProjectStatus}
               onDeleteProject={handleDeleteProject}
+              onImportProjectsRequest={() => handleOpenImport('projects')}
+              onNotify={handleNotify}
             />
           </div>
         )}
@@ -399,9 +466,12 @@ export default function App() {
               searchQuery={searchQuery}
               displayMode={displayMode}
               onAddLink={handleAddLink}
+              onUpdateLink={handleUpdateLink}
               onToggleFavorite={handleToggleFavoriteLink}
               onIncrementClicks={handleIncrementLinkClicks}
               onDeleteLink={handleDeleteLink}
+              onImportLinksRequest={() => handleOpenImport('links')}
+              onNotify={handleNotify}
             />
           </div>
         )}
@@ -416,6 +486,8 @@ export default function App() {
               onUpdateNote={handleUpdateNote}
               onDeleteNote={handleDeleteNote}
               onTogglePin={handleTogglePinNote}
+              onImportNotesRequest={() => handleOpenImport('notes')}
+              onNotify={handleNotify}
             />
           </div>
         )}
@@ -430,7 +502,14 @@ export default function App() {
               onClick={() => setIsExportModalOpen(true)}
               className="text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
             >
-              Télécharger index.html autonome
+              Sauvegarder & Exporter
+            </button>
+            <span aria-hidden="true">·</span>
+            <button
+              onClick={() => handleOpenImport('all')}
+              className="text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+            >
+              Importer un fichier
             </button>
             <span aria-hidden="true">·</span>
             <span>Mobile-First PWA</span>
@@ -452,8 +531,20 @@ export default function App() {
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         data={data}
-        onImportData={handleImportData}
+        onImportData={handleApplyImport}
         onResetData={handleResetData}
+        onOpenImportModal={() => handleOpenImport('all')}
+        onNotify={handleNotify}
+      />
+
+      {/* Safe Import Modal with Preview and Conflict Resolution */}
+      <SafeImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        currentData={data}
+        targetCategory={importTargetCategory}
+        onApplyImport={handleApplyImport}
+        onNotify={handleNotify}
       />
 
       {/* Quick Add Modal */}
@@ -464,6 +555,12 @@ export default function App() {
         onAddProject={handleAddProject}
         onAddLink={handleAddLink}
         onAddNote={handleAddNote}
+      />
+
+      {/* Floating Toast Notification Container */}
+      <ToastContainer
+        toasts={toasts}
+        onDismiss={handleDismissToast}
       />
 
       {/* iOS Installation Guide Popup */}
