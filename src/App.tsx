@@ -28,6 +28,12 @@ import { SafeImportModal } from './components/SafeImportModal';
 import { QuickAddModal } from './components/QuickAddModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { ToastContainer } from './components/ToastContainer';
+import { GlobalSearchModal } from './components/GlobalSearchModal';
+import { EditTaskModal } from './components/EditTaskModal';
+import { EditProjectModal } from './components/EditProjectModal';
+import { EditLinkModal } from './components/EditLinkModal';
+import { EditNoteModal } from './components/EditNoteModal';
+import { downloadDataUrl } from './utils/fileHelpers';
 import { useFullscreen } from './hooks/useFullscreen';
 import { usePWAInstall } from './hooks/usePWAInstall';
 
@@ -41,6 +47,29 @@ export default function App() {
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
+
+  // Intelligent Global Search State & Direct Inspect/Edit Modals
+  const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
+  const [editingTaskDirect, setEditingTaskDirect] = useState<Task | null>(null);
+  const [editingProjectDirect, setEditingProjectDirect] = useState<Project | null>(null);
+  const [editingLinkDirect, setEditingLinkDirect] = useState<ResourceLink | null>(null);
+  const [editingNoteDirect, setEditingNoteDirect] = useState<QuickNote | null>(null);
+
+  // Global search keyboard shortcuts (Ctrl+K, Cmd+K, "/")
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCtrlK = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k';
+      const isSlash = e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName);
+
+      if (isCtrlK || isSlash) {
+        e.preventDefault();
+        setIsGlobalSearchOpen(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Fullscreen hook
   const { isFullscreen, toggleFullscreen } = useFullscreen();
@@ -338,6 +367,10 @@ export default function App() {
         setActiveTab={setActiveTab}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
+        onOpenGlobalSearch={(initQ) => {
+          if (initQ !== undefined) setSearchQuery(initQ);
+          setIsGlobalSearchOpen(true);
+        }}
         displayMode={displayMode}
         onToggleDisplayMode={handleToggleDisplayMode}
         theme={theme}
@@ -561,6 +594,153 @@ export default function App() {
       <ToastContainer
         toasts={toasts}
         onDismiss={handleDismissToast}
+      />
+
+      {/* Intelligent Global Search Modal */}
+      <GlobalSearchModal
+        isOpen={isGlobalSearchOpen}
+        onClose={() => setIsGlobalSearchOpen(false)}
+        data={data}
+        initialQuery={searchQuery}
+        onSelectTask={(task) => {
+          setActiveTab('tasks');
+          setEditingTaskDirect(task);
+        }}
+        onSelectProject={(project) => {
+          setActiveTab('projects');
+          setEditingProjectDirect(project);
+        }}
+        onSelectLink={(link) => {
+          setActiveTab('links');
+          setEditingLinkDirect(link);
+        }}
+        onSelectNote={(note) => {
+          setActiveTab('notes');
+          setEditingNoteDirect(note);
+        }}
+        onSelectDocument={(doc, parent) => {
+          downloadDataUrl(doc.dataUrl, doc.name);
+          handleNotify(`Téléchargement lancé : ${doc.name}`, 'success');
+        }}
+        onNotify={handleNotify}
+      />
+
+      {/* Direct Edit Task Modal triggered from Global Search */}
+      <EditTaskModal
+        isOpen={Boolean(editingTaskDirect)}
+        onClose={() => setEditingTaskDirect(null)}
+        task={editingTaskDirect}
+        projects={data.projects}
+        onSaveTask={(updated) => {
+          handleUpdateTask(updated);
+          setEditingTaskDirect(null);
+          handleNotify('Tâche modifiée avec succès', 'success');
+        }}
+        onDeleteTask={(id) => {
+          handleDeleteTask(id);
+          setEditingTaskDirect(null);
+          handleNotify('Tâche supprimée', 'info');
+        }}
+        onDuplicateTask={(t) => {
+          handleAddTask(t.title + ' (Copie)', t.priority, t.isToday, t.projectId);
+          setEditingTaskDirect(null);
+          handleNotify('Tâche dupliquée', 'success');
+        }}
+        onNotify={handleNotify}
+      />
+
+      {/* Direct Edit Project Modal triggered from Global Search */}
+      <EditProjectModal
+        isOpen={Boolean(editingProjectDirect)}
+        onClose={() => setEditingProjectDirect(null)}
+        project={editingProjectDirect}
+        onSaveProject={(updated) => {
+          handleUpdateProject(updated);
+          setEditingProjectDirect(null);
+          handleNotify('Projet mis à jour avec succès', 'success');
+        }}
+        onDeleteProject={(id) => {
+          handleDeleteProject(id);
+          setEditingProjectDirect(null);
+          handleNotify('Projet supprimé', 'info');
+        }}
+        onDuplicateProject={(p) => {
+          handleAddProject({
+            title: p.title + ' (Copie)',
+            description: p.description,
+            category: p.category,
+            status: p.status,
+            progress: p.progress,
+            dueDate: p.dueDate,
+            tags: [...p.tags],
+            notes: p.notes,
+            documents: p.documents ? [...p.documents] : []
+          });
+          setEditingProjectDirect(null);
+          handleNotify('Projet dupliqué', 'success');
+        }}
+        onNotify={handleNotify}
+      />
+
+      {/* Direct Edit Link Modal triggered from Global Search */}
+      <EditLinkModal
+        isOpen={Boolean(editingLinkDirect)}
+        onClose={() => setEditingLinkDirect(null)}
+        link={editingLinkDirect}
+        onSaveLink={(updated) => {
+          handleUpdateLink(updated);
+          setEditingLinkDirect(null);
+          handleNotify('Lien mis à jour avec succès', 'success');
+        }}
+        onDeleteLink={(id) => {
+          handleDeleteLink(id);
+          setEditingLinkDirect(null);
+          handleNotify('Lien supprimé', 'info');
+        }}
+        onDuplicateLink={(l) => {
+          handleAddLink({
+            title: l.title + ' (Copie)',
+            url: l.url,
+            category: l.category,
+            description: l.description,
+            isFavorite: l.isFavorite,
+            tags: l.tags ? [...l.tags] : [],
+            documents: l.documents ? [...l.documents] : []
+          });
+          setEditingLinkDirect(null);
+          handleNotify('Lien dupliqué', 'success');
+        }}
+        onNotify={handleNotify}
+      />
+
+      {/* Direct Edit Note Modal triggered from Global Search */}
+      <EditNoteModal
+        isOpen={Boolean(editingNoteDirect)}
+        onClose={() => setEditingNoteDirect(null)}
+        note={editingNoteDirect}
+        onSaveNote={(updated) => {
+          handleUpdateNote(updated.id, updated);
+          setEditingNoteDirect(null);
+          handleNotify('Note mise à jour avec succès', 'success');
+        }}
+        onDeleteNote={(id) => {
+          handleDeleteNote(id);
+          setEditingNoteDirect(null);
+          handleNotify('Note supprimée', 'info');
+        }}
+        onDuplicateNote={(n) => {
+          handleAddNote({
+            title: n.title + ' (Copie)',
+            content: n.content,
+            isPinned: n.isPinned,
+            color: n.color,
+            tags: n.tags ? [...n.tags] : [],
+            documents: n.documents ? [...n.documents] : []
+          });
+          setEditingNoteDirect(null);
+          handleNotify('Note dupliquée', 'success');
+        }}
+        onNotify={handleNotify}
       />
 
       {/* iOS Installation Guide Popup */}

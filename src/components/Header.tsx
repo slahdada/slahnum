@@ -25,6 +25,7 @@ interface HeaderProps {
   setActiveTab: (tab: 'all' | 'tasks' | 'projects' | 'links' | 'notes') => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  onOpenGlobalSearch: (initialQuery?: string) => void;
   displayMode: DisplayMode;
   onToggleDisplayMode: () => void;
   theme: ThemeMode;
@@ -44,6 +45,7 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   searchQuery,
   setSearchQuery,
+  onOpenGlobalSearch,
   displayMode,
   onToggleDisplayMode,
   theme,
@@ -59,7 +61,6 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [time, setTime] = useState<string>('');
   const [dateStr, setDateStr] = useState<string>('');
-  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
   useEffect(() => {
     const updateDateTime = () => {
@@ -158,38 +159,33 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Action Tools & Controls */}
           <div className="flex items-center gap-1 sm:gap-2">
             
-            {/* Desktop / Tablet Search Input */}
-            <div className="hidden sm:block relative w-36 md:w-48">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500 pointer-events-none" />
+            {/* Desktop / Tablet Global Search Trigger Input */}
+            <div 
+              onClick={() => onOpenGlobalSearch(searchQuery)}
+              className="hidden sm:flex items-center relative w-40 md:w-56 cursor-pointer group"
+              title="Recherche globale intelligente (Ctrl+K ou /)"
+            >
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500 group-hover:text-indigo-500 transition-colors pointer-events-none" />
               <input
                 type="text"
-                placeholder="Rechercher..."
+                readOnly
+                placeholder="Rechercher partout..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg pl-8 pr-6 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-indigo-500 transition-colors"
+                className="w-full bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-900 dark:hover:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 group-hover:border-indigo-400 dark:group-hover:border-zinc-700 rounded-lg pl-8 pr-12 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none transition-colors cursor-pointer select-none"
               />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  aria-label="Effacer recherche"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-                >
-                  ×
-                </button>
-              )}
+              <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-mono text-zinc-400 dark:text-zinc-500 bg-zinc-200/60 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-300/60 dark:border-zinc-700/60 pointer-events-none">
+                ⌘K
+              </kbd>
             </div>
 
-            {/* Mobile Search Toggle Button */}
+            {/* Mobile Global Search Button (Opens Dedicated Fullscreen Search) */}
             <button
-              onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
-              aria-label="Rechercher"
-              className={`sm:hidden min-w-[40px] min-h-[40px] p-2 flex items-center justify-center rounded-lg border transition-colors ${
-                isMobileSearchOpen || searchQuery
-                  ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400'
-                  : 'bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300'
-              }`}
+              onClick={() => onOpenGlobalSearch(searchQuery)}
+              aria-label="Recherche globale"
+              title="Rechercher dans toute l'application"
+              className="sm:hidden min-w-[40px] min-h-[40px] p-2 flex items-center justify-center rounded-lg border bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 transition-colors active:scale-95"
             >
-              <Search className="w-4 h-4" />
+              <Search className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             </button>
 
             {/* FULLSCREEN TOGGLE BUTTON */}
@@ -334,32 +330,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
         </div>
-
-        {/* Mobile Expandable Search Bar */}
-        {isMobileSearchOpen && (
-          <div className="sm:hidden pb-3 pt-1 animate-in slide-in-from-top-2 duration-150">
-            <div className="relative w-full">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-              <input
-                type="text"
-                autoFocus
-                placeholder="Rechercher tâches, projets, liens..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl pl-9 pr-8 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-indigo-500"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  aria-label="Effacer"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-zinc-400 hover:text-zinc-600"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Fullscreen Sticky Exit Banner on Mobile when Fullscreen is Active */}
