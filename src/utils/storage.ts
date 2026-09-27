@@ -65,7 +65,7 @@ export const initialData: AppData = {
     },
     {
       id: 'task-1b',
-      title: 'Intégrer le composant graphique Recharts pour les 7 derniers jours',
+      title: 'Conception mobile-first et mode plein écran immersif',
       completed: true,
       priority: 'haute',
       isToday: true,
@@ -443,18 +443,6 @@ export function generateStandaloneHtml(data: AppData): string {
       </div>
     </section>
 
-    <!-- Visualisation d'activité des 7 derniers jours -->
-    <section class="bg-zinc-900/80 border border-zinc-800/90 rounded-xl p-5">
-      <div class="flex items-center justify-between mb-3">
-        <div>
-          <h2 class="text-base font-semibold text-white">Activité des Tâches (7 derniers jours)</h2>
-          <p class="text-xs text-zinc-400 mt-0.5">Nombre de tâches terminées chaque jour</p>
-        </div>
-        <div id="chart-total-kpi" class="text-xs text-indigo-400 font-mono font-medium"></div>
-      </div>
-      <div id="activity-chart" class="grid grid-cols-7 gap-2 pt-2 items-end h-36"></div>
-    </section>
-
     <!-- Grille Principale 2 Colonnes -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <!-- Colonne Gauche: Tâches et Projets (7 colonnes) -->
@@ -554,46 +542,10 @@ export function generateStandaloneHtml(data: AppData): string {
 
     function renderAll() {
       renderStats();
-      renderActivityChart();
       renderTasks();
       renderProjects();
       renderLinks();
       renderNotes();
-    }
-
-    function renderActivityChart() {
-      const chartEl = document.getElementById('activity-chart');
-      const kpiEl = document.getElementById('chart-total-kpi');
-      if (!chartEl) return;
-
-      const now = new Date();
-      const days = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(now);
-        d.setDate(d.getDate() - i);
-        const dateKey = d.toISOString().split('T')[0];
-        const dayLabel = i === 0 ? "Auj." : d.toLocaleDateString('fr-FR', { weekday: 'short' });
-        const count = appData.tasks.filter(t => t.completed && t.completedAt && t.completedAt.startsWith(dateKey)).length;
-        days.push({ label: dayLabel, count: count });
-      }
-
-      const total = days.reduce((sum, d) => sum + d.count, 0);
-      if (kpiEl) kpiEl.textContent = total + ' tâche' + (total > 1 ? 's' : '') + ' terminées sur 7j';
-
-      const maxCount = Math.max(1, ...days.map(d => d.count));
-
-      chartEl.innerHTML = days.map(d => {
-        const pct = Math.max(8, Math.round((d.count / maxCount) * 100));
-        return \`
-          <div class="flex flex-col items-center h-full justify-end group">
-            <span class="text-[10px] font-mono text-zinc-400 mb-1 group-hover:text-indigo-400 font-bold">\${d.count}</span>
-            <div class="w-full max-w-[36px] bg-zinc-800 rounded-t-md overflow-hidden h-24 flex items-end">
-              <div class="w-full bg-indigo-500 hover:bg-indigo-400 transition-all rounded-t-md" style="height: \${pct}%"></div>
-            </div>
-            <span class="text-[10px] text-zinc-500 mt-1 capitalize">\${d.label}</span>
-          </div>
-        \`;
-      }).join('');
     }
 
     function renderStats() {

@@ -24,7 +24,9 @@ import { LinksSection } from './components/LinksSection';
 import { NotesSection } from './components/NotesSection';
 import { ExportModal } from './components/ExportModal';
 import { QuickAddModal } from './components/QuickAddModal';
-import { TaskActivityChart } from './components/TaskActivityChart';
+import { MobileBottomNav } from './components/MobileBottomNav';
+import { useFullscreen } from './hooks/useFullscreen';
+import { usePWAInstall } from './hooks/usePWAInstall';
 
 export default function App() {
   const [data, setData] = useState<AppData>(() => loadStoredData());
@@ -32,6 +34,13 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [showIOSGuide, setShowIOSGuide] = useState(false);
+
+  // Fullscreen hook
+  const { isFullscreen, toggleFullscreen } = useFullscreen();
+
+  // PWA Install hook
+  const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
 
   // Theme state: 'dark' | 'light'
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -90,6 +99,14 @@ export default function App() {
 
   const handleToggleDisplayMode = () => {
     setDisplayMode(prev => prev === 'cards' ? 'list' : 'cards');
+  };
+
+  const handleInstallClick = async () => {
+    if (isInstallable) {
+      await install();
+    } else if (isIOS) {
+      setShowIOSGuide(true);
+    }
   };
 
   // Tasks actions
@@ -260,9 +277,13 @@ export default function App() {
     setData(initialData);
   };
 
+  const pendingTasksCount = data.tasks.filter(t => !t.completed).length;
+  const activeProjectsCount = data.projects.filter(p => p.status === 'en_cours').length;
+
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col antialiased selection:bg-indigo-500/30 selection:text-indigo-200 transition-colors duration-200">
-      {/* Top Bar */}
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col antialiased selection:bg-indigo-500/30 selection:text-indigo-200 transition-colors duration-200 overflow-x-hidden">
+      
+      {/* Top Bar with Fullscreen and PWA Controls */}
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -274,26 +295,27 @@ export default function App() {
         onToggleTheme={handleToggleTheme}
         onOpenExportModal={() => setIsExportModalOpen(true)}
         onQuickNewItem={() => setIsQuickAddOpen(true)}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={toggleFullscreen}
+        isInstallable={isInstallable || isIOS}
+        onInstallApp={handleInstallClick}
+        isInstalled={isInstalled}
       />
 
-      {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full space-y-6">
+      {/* Main Container - Optimized for mobile width with adequate bottom spacing for Thumb Nav */}
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 flex-1 w-full space-y-4 sm:space-y-6 pb-28 sm:pb-10">
+        
         {/* Summary Metric Cards */}
         <DashboardStats
           data={data}
           onSelectTab={(tab) => setActiveTab(tab)}
         />
 
-        {/* Recharts Task Activity Visualization (7 derniers jours) */}
-        {(activeTab === 'all' || activeTab === 'tasks') && (
-          <TaskActivityChart tasks={data.tasks} theme={theme} />
-        )}
-
         {/* View Switcher Content */}
         {activeTab === 'all' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
             {/* Primary Column (7 cols): Tasks & Projects */}
-            <div className="lg:col-span-7 space-y-6">
+            <div className="lg:col-span-7 space-y-4 sm:space-y-6">
               <TasksSection
                 tasks={data.tasks}
                 projects={data.projects}
@@ -317,7 +339,7 @@ export default function App() {
             </div>
 
             {/* Secondary Column (5 cols): Links & Notes */}
-            <div className="lg:col-span-5 space-y-6">
+            <div className="lg:col-span-5 space-y-4 sm:space-y-6">
               <LinksSection
                 links={data.links}
                 searchQuery={searchQuery}
@@ -399,10 +421,10 @@ export default function App() {
         )}
       </main>
 
-      {/* Subtle Footer */}
-      <footer className="border-t border-zinc-200 dark:border-zinc-900 bg-white dark:bg-zinc-950 py-4 text-center text-xs text-zinc-500 transition-colors">
+      {/* Subtle Desktop/Tablet Footer */}
+      <footer className="hidden sm:block border-t border-zinc-200 dark:border-zinc-900 bg-white dark:bg-zinc-950 py-4 text-center text-xs text-zinc-500 transition-colors">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p>Espace Numérique Quotidien · Données sauvegardées en temps réel sur cet appareil</p>
+          <p>Espace Numérique Quotidien · Données sauvegardées en local sur cet appareil</p>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsExportModalOpen(true)}
@@ -411,10 +433,19 @@ export default function App() {
               Télécharger index.html autonome
             </button>
             <span aria-hidden="true">·</span>
-            <span>Local v1.2</span>
+            <span>Mobile-First PWA</span>
           </div>
         </div>
       </footer>
+
+      {/* Thumb-friendly Fixed Bottom Navigation Bar for Smartphone */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        pendingTasksCount={pendingTasksCount}
+        activeProjectsCount={activeProjectsCount}
+        onQuickAdd={() => setIsQuickAddOpen(true)}
+      />
 
       {/* Export / Backup Modal */}
       <ExportModal
@@ -434,6 +465,29 @@ export default function App() {
         onAddLink={handleAddLink}
         onAddNote={handleAddNote}
       />
+
+      {/* iOS Installation Guide Popup */}
+      {showIOSGuide && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-zinc-900 p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
+              <span className="text-2xl font-bold">📲</span>
+            </div>
+            <h3 className="text-base font-bold text-zinc-900 dark:text-white">Installer sur votre écran d'accueil</h3>
+            <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed text-left bg-zinc-50 dark:bg-zinc-950 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800">
+              1. Appuyez sur le bouton <strong>Partager</strong> dans Safari (icône carré avec flèche vers le haut).<br />
+              2. Faites défiler et appuyez sur <strong>Sur l'écran d'accueil</strong>.<br />
+              3. Validez en appuyant sur <strong>Ajouter</strong>.
+            </p>
+            <button
+              onClick={() => setShowIOSGuide(false)}
+              className="w-full min-h-[44px] rounded-xl bg-indigo-600 active:bg-indigo-700 text-white text-xs font-semibold shadow-sm"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

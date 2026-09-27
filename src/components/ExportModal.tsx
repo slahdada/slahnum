@@ -76,17 +76,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 transition-colors">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 max-h-[88vh] overflow-y-auto transition-colors">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
           <div className="flex items-center gap-2">
             <Database className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            <h3 className="text-base font-semibold text-zinc-900 dark:text-white">Sauvegarde & Exportation</h3>
+            <h3 className="text-base font-bold text-zinc-900 dark:text-white">Sauvegarde & Exportation</h3>
           </div>
           <button
             onClick={onClose}
-            className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white text-base transition-colors"
+            className="min-w-[36px] min-h-[36px] flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-white text-base transition-colors"
           >
             ✕
           </button>
@@ -99,7 +99,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           </div>
           <div className="text-xs">
             <p className="font-semibold text-zinc-900 dark:text-zinc-200">Sauvegarde locale active</p>
-            <p className="text-zinc-500">Toutes vos modifications sont conservées dans le <span className="font-mono text-zinc-700 dark:text-zinc-400">localStorage</span> de ce navigateur.</p>
+            <p className="text-zinc-500">Toutes vos modifications sont conservées dans le <span className="font-mono text-zinc-700 dark:text-zinc-400">localStorage</span> de cet appareil.</p>
           </div>
         </div>
 
@@ -116,24 +116,24 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
             <button
               onClick={handleDownloadStandaloneHtml}
-              className="px-3 py-2 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+              className="min-h-[44px] px-3 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
             >
-              <Download className="w-3.5 h-3.5" />
+              <Download className="w-4 h-4" />
               <span>Télécharger index.html</span>
             </button>
 
             <button
               onClick={handleCopyStandaloneHtml}
-              className="px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700/80 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+              className="min-h-[44px] px-3 py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700/80 rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95"
             >
               {copiedHtml ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-emerald-500" />
+                  <Check className="w-4 h-4 text-emerald-500" />
                   <span className="text-emerald-600 dark:text-emerald-400">Code HTML copié !</span>
                 </>
               ) : (
                 <>
-                  <Copy className="w-3.5 h-3.5" />
+                  <Copy className="w-4 h-4" />
                   <span>Copier le code index.html</span>
                 </>
               )}
@@ -151,14 +151,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button
               onClick={() => exportDataAsJson(data)}
-              className="px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+              className="min-h-[44px] px-3 py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95"
             >
-              <Download className="w-3.5 h-3.5" />
+              <Download className="w-4 h-4" />
               <span>Exporter en JSON</span>
             </button>
 
-            <label className="px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
-              <Upload className="w-3.5 h-3.5" />
+            <label className="min-h-[44px] px-3 py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95">
+              <Upload className="w-4 h-4" />
               <span>Importer un JSON</span>
               <input
                 type="file"
@@ -175,7 +175,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         </div>
 
         {/* Section 3: Reset */}
-        <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800/80 flex items-center justify-between">
+        <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
           <button
             onClick={() => {
               if (window.confirm('Voulez-vous réinitialiser toutes vos données avec les valeurs par défaut ?')) {
@@ -185,13 +185,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             }}
             className="text-xs text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center gap-1.5"
           >
-            <RotateCcw className="w-3 h-3" />
-            <span>Réinitialiser les données de démonstration</span>
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Réinitialiser les données</span>
           </button>
 
           <button
             onClick={onClose}
-            className="px-4 py-1.5 text-xs text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 rounded-lg"
+            className="min-h-[40px] w-full sm:w-auto px-5 py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 rounded-xl"
           >
             Fermer
           </button>

@@ -91,11 +91,12 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
   });
 
   return (
-    <div className="bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800/90 rounded-xl p-5 flex flex-col h-full shadow-sm dark:shadow-none transition-colors duration-200">
+    <div className="bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800/90 rounded-2xl p-3.5 sm:p-5 flex flex-col h-full shadow-sm dark:shadow-none transition-colors duration-200">
+      
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-white tracking-tight flex items-center gap-2">
+          <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white tracking-tight flex items-center gap-2">
             <span>Suivi de Projets</span>
             <span className="text-xs font-mono tabular-nums text-zinc-500 font-normal">
               ({projects.length} au total)
@@ -106,71 +107,73 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
           {/* Display Mode Switch */}
-          <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-950/80 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs">
+          <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-950/80 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs shrink-0">
             <button
               onClick={() => setLocalDisplayMode('cards')}
-              className={`p-1.5 rounded transition-colors ${
+              className={`min-w-[36px] min-h-[36px] p-1.5 rounded-lg transition-colors flex items-center justify-center ${
                 localDisplayMode === 'cards'
                   ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
                   : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
               }`}
               title="Modèle Cartes"
+              aria-label="Mode cartes"
             >
-              <LayoutGrid className="w-3.5 h-3.5" />
+              <LayoutGrid className="w-4 h-4" />
             </button>
             <button
               onClick={() => setLocalDisplayMode('list')}
-              className={`p-1.5 rounded transition-colors ${
+              className={`min-w-[36px] min-h-[36px] p-1.5 rounded-lg transition-colors flex items-center justify-center ${
                 localDisplayMode === 'list'
                   ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
                   : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
               }`}
               title="Mode Liste"
+              aria-label="Mode liste"
             >
-              <List className="w-3.5 h-3.5" />
+              <List className="w-4 h-4" />
             </button>
           </div>
 
           {/* Status Filter */}
-          <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-950/80 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs">
+          <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-950/80 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-x-auto text-xs no-scrollbar">
             <button
               onClick={() => setFilter('all')}
-              className={`px-2.5 py-1 rounded-md transition-colors font-medium ${
+              className={`px-3 py-1.5 min-h-[36px] rounded-lg transition-colors font-medium ${
                 filter === 'all'
-                  ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                  ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm font-semibold'
+                  : 'text-zinc-600 dark:text-zinc-400'
               }`}
             >
               Tous
             </button>
             <button
               onClick={() => setFilter('en_cours')}
-              className={`px-2.5 py-1 rounded-md transition-colors font-medium ${
+              className={`px-3 py-1.5 min-h-[36px] rounded-lg transition-colors font-medium ${
                 filter === 'en_cours'
-                  ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                  ? 'bg-white dark:bg-zinc-800 text-emerald-600 dark:text-emerald-400 shadow-sm font-semibold'
+                  : 'text-zinc-600 dark:text-zinc-400'
               }`}
             >
               Actifs
             </button>
             <button
               onClick={() => setFilter('en_attente')}
-              className={`px-2.5 py-1 rounded-md transition-colors font-medium ${
+              className={`px-3 py-1.5 min-h-[36px] rounded-lg transition-colors font-medium ${
                 filter === 'en_attente'
-                  ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                  ? 'bg-white dark:bg-zinc-800 text-amber-600 dark:text-amber-400 shadow-sm font-semibold'
+                  : 'text-zinc-600 dark:text-zinc-400'
               }`}
             >
               Pause
             </button>
             <button
               onClick={() => setFilter('termine')}
-              className={`px-2.5 py-1 rounded-md transition-colors font-medium ${
+              className={`px-3 py-1.5 min-h-[36px] rounded-lg transition-colors font-medium ${
                 filter === 'termine'
-                  ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                  ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 shadow-sm font-semibold'
+                  : 'text-zinc-600 dark:text-zinc-400'
               }`}
             >
               Finis
@@ -179,24 +182,25 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors flex items-center gap-1.5 shrink-0"
+            aria-label="Nouveau projet"
+            className="min-h-[40px] px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 rounded-xl transition-all flex items-center gap-1.5 shrink-0 active:scale-95 shadow-sm"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Nouveau projet</span>
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span className="hidden sm:inline">Nouveau</span>
           </button>
         </div>
       </div>
 
       {/* Projects Content */}
       {filteredProjects.length === 0 ? (
-        <div className="text-center py-10 px-4 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg">
-          <FolderKanban className="w-8 h-8 text-zinc-400 dark:text-zinc-600 mx-auto mb-2" />
-          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Aucun projet trouvé</p>
+        <div className="text-center py-10 px-4 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl">
+          <FolderKanban className="w-10 h-10 text-zinc-400 dark:text-zinc-600 mx-auto mb-2" />
+          <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Aucun projet trouvé</p>
           <p className="text-xs text-zinc-500 mt-1">Créez votre premier projet ou changez vos critères de filtre.</p>
         </div>
       ) : localDisplayMode === 'cards' ? (
         /* MODÈLE CARTES */
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 overflow-y-auto max-h-[460px] pr-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 overflow-y-auto max-h-[500px] pr-0.5">
           {filteredProjects.map((project) => {
             const statusConfig = {
               en_cours: { label: 'En cours', color: 'text-emerald-600 dark:text-emerald-400', barColor: 'bg-emerald-500' },
@@ -207,26 +211,27 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
             return (
               <div
                 key={project.id}
-                className="bg-zinc-50/80 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700/80 rounded-xl p-4 flex flex-col justify-between transition-all duration-150 shadow-xs"
+                className="bg-zinc-50/80 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col justify-between transition-all duration-150 shadow-sm"
               >
                 <div>
                   <div className="flex items-center justify-between text-xs mb-2">
-                    <span className="text-zinc-500 dark:text-zinc-400 font-medium">{project.category}</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`font-semibold ${statusConfig.color}`}>
+                    <span className="text-zinc-500 dark:text-zinc-400 font-semibold">{project.category}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`font-bold ${statusConfig.color}`}>
                         {statusConfig.label}
                       </span>
                       <button
                         onClick={() => onDeleteProject(project.id)}
-                        className="text-zinc-400 hover:text-red-500 dark:text-zinc-600 dark:hover:text-red-400 p-0.5 transition-colors"
+                        className="min-w-[36px] min-h-[36px] -mr-1.5 -my-1 flex items-center justify-center text-zinc-400 hover:text-red-500 dark:text-zinc-500 dark:hover:text-red-400 transition-colors"
                         title="Supprimer le projet"
+                        aria-label="Supprimer le projet"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
 
-                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-white tracking-tight">
+                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white tracking-tight leading-snug">
                     {project.title}
                   </h3>
 
@@ -238,35 +243,34 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                   {project.tags.length > 0 && (
                     <div className="flex items-center gap-1.5 text-xs text-zinc-500 mt-2.5 flex-wrap">
                       {project.tags.map((tag, i) => (
-                        <React.Fragment key={i}>
-                          <span className="text-zinc-600 dark:text-zinc-400">#{tag}</span>
-                          {i < project.tags.length - 1 && <span aria-hidden="true">·</span>}
-                        </React.Fragment>
+                        <span key={i} className="text-[11px] font-mono px-2 py-0.5 rounded bg-zinc-200/70 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300">
+                          #{tag}
+                        </span>
                       ))}
                     </div>
                   )}
                 </div>
 
-                {/* Progress bar + controls */}
-                <div className="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-850">
-                  <div className="flex items-center justify-between text-xs mb-1.5">
+                {/* Progress bar + controls with finger-friendly buttons */}
+                <div className="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-800">
+                  <div className="flex items-center justify-between text-xs mb-2">
                     <div className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
                       {project.dueDate ? (
                         <>
-                          <Calendar className="w-3 h-3 text-zinc-400" />
+                          <Calendar className="w-3.5 h-3.5 text-zinc-400" />
                           <span>Échéance: {project.dueDate}</span>
                         </>
                       ) : (
                         <span>Sans échéance</span>
                       )}
                     </div>
-                    <span className="font-mono tabular-nums text-zinc-900 dark:text-white font-medium">
+                    <span className="font-mono tabular-nums text-zinc-900 dark:text-white font-bold text-sm">
                       {project.progress}%
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-zinc-200 dark:bg-zinc-850 h-2 rounded-full overflow-hidden">
+                    <div className="flex-1 bg-zinc-200 dark:bg-zinc-800 h-2.5 rounded-full overflow-hidden">
                       <div
                         className={`${statusConfig.barColor} h-full rounded-full transition-all duration-300`}
                         style={{ width: `${project.progress}%` }}
@@ -275,14 +279,14 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => onUpdateProjectProgress(project.id, Math.max(0, project.progress - 10))}
-                        className="px-1.5 py-0.5 text-[10px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded"
+                        className="min-w-[38px] min-h-[36px] px-2 py-1 text-xs font-bold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg active:scale-95 transition-all flex items-center justify-center"
                         title="-10%"
                       >
                         -10
                       </button>
                       <button
                         onClick={() => onUpdateProjectProgress(project.id, Math.min(100, project.progress + 10))}
-                        className="px-1.5 py-0.5 text-[10px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded"
+                        className="min-w-[38px] min-h-[36px] px-2 py-1 text-xs font-bold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg active:scale-95 transition-all flex items-center justify-center"
                         title="+10%"
                       >
                         +10
@@ -290,26 +294,24 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between mt-2.5 pt-2 text-[11px] text-zinc-500">
-                    <span>Changer statut:</span>
-                    <div className="flex items-center gap-1 font-medium">
+                  <div className="flex items-center justify-between mt-3 pt-2 text-[11px] text-zinc-500">
+                    <span className="font-medium">Statut :</span>
+                    <div className="flex items-center gap-1 font-semibold">
                       <button
                         onClick={() => onUpdateProjectStatus(project.id, 'en_cours')}
-                        className={`px-1.5 py-0.5 rounded ${project.status === 'en_cours' ? 'text-emerald-600 dark:text-emerald-300 font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
+                        className={`min-h-[32px] px-2.5 py-1 rounded-lg transition-colors ${project.status === 'en_cours' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400'}`}
                       >
                         Actif
                       </button>
-                      <span aria-hidden="true">·</span>
                       <button
                         onClick={() => onUpdateProjectStatus(project.id, 'en_attente')}
-                        className={`px-1.5 py-0.5 rounded ${project.status === 'en_attente' ? 'text-amber-600 dark:text-amber-300 font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
+                        className={`min-h-[32px] px-2.5 py-1 rounded-lg transition-colors ${project.status === 'en_attente' ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300 font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400'}`}
                       >
                         Pause
                       </button>
-                      <span aria-hidden="true">·</span>
                       <button
                         onClick={() => onUpdateProjectStatus(project.id, 'termine')}
-                        className={`px-1.5 py-0.5 rounded ${project.status === 'termine' ? 'text-indigo-600 dark:text-indigo-300 font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
+                        className={`min-h-[32px] px-2.5 py-1 rounded-lg transition-colors ${project.status === 'termine' ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400'}`}
                       >
                         Fini
                       </button>
@@ -323,7 +325,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
         </div>
       ) : (
         /* MODE LISTE */
-        <div className="space-y-2 overflow-y-auto max-h-[460px] pr-1">
+        <div className="space-y-2 overflow-y-auto max-h-[500px] pr-0.5">
           {filteredProjects.map((project) => {
             const statusConfig = {
               en_cours: { label: 'En cours', color: 'text-emerald-600 dark:text-emerald-400', barColor: 'bg-emerald-500' },
@@ -334,11 +336,11 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
             return (
               <div
                 key={project.id}
-                className="p-3 bg-zinc-50/80 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700/80 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors shadow-xs"
+                className="p-3.5 bg-zinc-50/80 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors shadow-sm"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-white truncate">
+                    <h3 className="text-sm font-bold text-zinc-900 dark:text-white truncate">
                       {project.title}
                     </h3>
                     <span className="text-xs text-zinc-500 shrink-0">
@@ -350,40 +352,36 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                   </p>
                 </div>
 
-                {/* Progress bar + percentage */}
-                <div className="w-full sm:w-48 shrink-0">
-                  <div className="flex justify-between text-xs text-zinc-500 mb-1">
-                    <span className={`font-semibold ${statusConfig.color}`}>{statusConfig.label}</span>
-                    <span className="font-mono tabular-nums text-zinc-700 dark:text-zinc-300">{project.progress}%</span>
+                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold ${statusConfig.color}`}>
+                      {statusConfig.label}
+                    </span>
+                    <span className="font-mono text-xs font-bold text-zinc-900 dark:text-white">
+                      {project.progress}%
+                    </span>
                   </div>
-                  <div className="w-full bg-zinc-200 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-                    <div className={`${statusConfig.barColor} h-full rounded-full transition-all`} style={{ width: `${project.progress}%` }}></div>
-                  </div>
-                </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
-                  <button
-                    onClick={() => onUpdateProjectProgress(project.id, Math.max(0, project.progress - 10))}
-                    className="px-1.5 py-0.5 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded text-zinc-600 dark:text-zinc-400"
-                    title="-10%"
-                  >
-                    -10
-                  </button>
-                  <button
-                    onClick={() => onUpdateProjectProgress(project.id, Math.min(100, project.progress + 10))}
-                    className="px-1.5 py-0.5 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded text-zinc-600 dark:text-zinc-400"
-                    title="+10%"
-                  >
-                    +10
-                  </button>
-                  <button
-                    onClick={() => onDeleteProject(project.id)}
-                    className="p-1 text-zinc-400 hover:text-red-500 dark:text-zinc-600 dark:hover:text-red-400 ml-1"
-                    title="Supprimer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => onUpdateProjectProgress(project.id, Math.max(0, project.progress - 10))}
+                      className="min-w-[36px] min-h-[36px] px-2 py-1 text-xs font-bold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg active:scale-95 flex items-center justify-center"
+                    >
+                      -10
+                    </button>
+                    <button
+                      onClick={() => onUpdateProjectProgress(project.id, Math.min(100, project.progress + 10))}
+                      className="min-w-[36px] min-h-[36px] px-2 py-1 text-xs font-bold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg active:scale-95 flex items-center justify-center"
+                    >
+                      +10
+                    </button>
+                    <button
+                      onClick={() => onDeleteProject(project.id)}
+                      className="min-w-[36px] min-h-[36px] p-2 text-zinc-400 hover:text-red-500 dark:text-zinc-500 dark:hover:text-red-400 rounded-lg transition-colors flex items-center justify-center"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -391,15 +389,15 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
         </div>
       )}
 
-      {/* Modal: Nouveau Projet */}
+      {/* Project Creation Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl max-w-md w-full p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
-              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">Nouveau Projet</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl max-h-[88vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-4">
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white">Créer un nouveau projet</h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white text-sm"
+                className="min-w-[36px] min-h-[36px] flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-white text-base"
               >
                 ✕
               </button>
@@ -414,7 +412,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                   placeholder="ex: Refonte Site E-commerce"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-base sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
@@ -425,17 +423,17 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                   placeholder="Objectifs principaux, jalons, périmètre..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-indigo-500 resize-none"
+                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-indigo-500 resize-none"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Catégorie</label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500"
+                    className="w-full min-h-[44px] bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-sm text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500"
                   >
                     <option value="Développement">Développement</option>
                     <option value="Design">Design</option>
@@ -450,7 +448,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as ProjectStatus)}
-                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500"
+                    className="w-full min-h-[44px] bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-sm text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500"
                   >
                     <option value="en_cours">En cours</option>
                     <option value="en_attente">En pause</option>
@@ -459,7 +457,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Progression ({progress}%)</label>
                   <input
@@ -469,7 +467,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                     step="5"
                     value={progress}
                     onChange={(e) => setProgress(Number(e.target.value))}
-                    className="w-full h-2 bg-zinc-200 dark:bg-zinc-950 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    className="w-full h-3 bg-zinc-200 dark:bg-zinc-950 rounded-lg appearance-none cursor-pointer accent-indigo-600 mt-2"
                   />
                 </div>
 
@@ -479,7 +477,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500"
+                    className="w-full min-h-[44px] bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-sm text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
@@ -488,24 +486,24 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                 <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Tags (séparés par des virgules)</label>
                 <input
                   type="text"
-                  placeholder="ex: React, API, Urgent"
+                  placeholder="ex: React, API, Mobile"
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-200 dark:border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-3.5 py-1.5 text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white rounded-lg transition-colors"
+                  className="min-h-[44px] px-4 py-2 text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white rounded-xl transition-colors"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors"
+                  className="min-h-[44px] px-5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 rounded-xl transition-all shadow-sm active:scale-95"
                 >
                   Créer le projet
                 </button>

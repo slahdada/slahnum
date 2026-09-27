@@ -61,7 +61,7 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
     if (!newTitle.trim() && !newContent.trim()) return;
 
     onAddNote({
-      title: newTitle.trim() || 'Note sans titre',
+      title: newTitle.trim() || 'Note rapide',
       content: newContent.trim(),
       isPinned: false,
       color: newColor
@@ -109,11 +109,12 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
   });
 
   return (
-    <div className="bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800/90 rounded-xl p-5 flex flex-col h-full shadow-sm dark:shadow-none transition-colors duration-200">
+    <div className="bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800/90 rounded-2xl p-3.5 sm:p-5 flex flex-col h-full shadow-sm dark:shadow-none transition-colors duration-200">
+      
       {/* Top Header */}
-      <div className="flex items-center justify-between gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-white tracking-tight flex items-center gap-2">
+          <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white tracking-tight flex items-center gap-2">
             <span>Bloc-Notes Rapides</span>
             <span className="text-xs font-mono tabular-nums text-zinc-500 font-normal">
               ({notes.length})
@@ -124,52 +125,55 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
           {/* Display Mode Switch */}
-          <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-950/80 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs">
+          <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-950/80 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs shrink-0">
             <button
               onClick={() => setLocalDisplayMode('cards')}
-              className={`p-1.5 rounded transition-colors ${
+              className={`min-w-[36px] min-h-[36px] p-1.5 rounded-lg transition-colors flex items-center justify-center ${
                 localDisplayMode === 'cards'
                   ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
                   : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
               }`}
               title="Modèle Cartes"
+              aria-label="Mode cartes"
             >
-              <LayoutGrid className="w-3.5 h-3.5" />
+              <LayoutGrid className="w-4 h-4" />
             </button>
             <button
               onClick={() => setLocalDisplayMode('list')}
-              className={`p-1.5 rounded transition-colors ${
+              className={`min-w-[36px] min-h-[36px] p-1.5 rounded-lg transition-colors flex items-center justify-center ${
                 localDisplayMode === 'list'
                   ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
                   : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
               }`}
               title="Mode Liste"
+              aria-label="Mode liste"
             >
-              <List className="w-3.5 h-3.5" />
+              <List className="w-4 h-4" />
             </button>
           </div>
 
           <button
             onClick={() => setIsCreating(!isCreating)}
-            className="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors flex items-center gap-1.5 shrink-0"
+            aria-label="Ajouter une note"
+            className="min-h-[40px] px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 rounded-xl transition-all flex items-center gap-1.5 shrink-0 active:scale-95 shadow-sm"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Note</span>
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span className="hidden sm:inline">Nouvelle note</span>
           </button>
         </div>
       </div>
 
       {/* Inline Create Form */}
       {isCreating && (
-        <form onSubmit={handleCreate} className="bg-zinc-50 dark:bg-zinc-950 p-3.5 rounded-lg border border-indigo-500/50 mb-4 space-y-3">
+        <form onSubmit={handleCreate} className="bg-zinc-50 dark:bg-zinc-950 p-4 rounded-2xl border border-indigo-500/50 mb-4 space-y-3 animate-in fade-in">
           <input
             type="text"
             placeholder="Titre de la note..."
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
-            className="w-full bg-transparent text-sm font-semibold text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none"
+            className="w-full bg-transparent text-base sm:text-sm font-bold text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none"
             autoFocus
           />
           <textarea
@@ -177,38 +181,40 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
             placeholder="Écrivez votre pensée, snippet, lien temporaire..."
             value={newContent}
             onChange={(e) => setNewContent(e.target.value)}
-            className="w-full bg-transparent text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none resize-none leading-relaxed"
+            className="w-full bg-transparent text-sm text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 focus:outline-none resize-none leading-relaxed"
           />
 
-          <div className="flex items-center justify-between pt-2 border-t border-zinc-200 dark:border-zinc-800 text-xs">
-            {/* Color choices */}
-            <div className="flex items-center gap-1.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-zinc-200 dark:border-zinc-800">
+            {/* Large Color Swatches */}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-zinc-500 mr-1">Couleur :</span>
               {(Object.keys(colorStyles) as NoteColor[]).map((c) => (
                 <button
                   key={c}
                   type="button"
                   onClick={() => setNewColor(c)}
-                  className={`w-4 h-4 rounded-full ${colorStyles[c].dot} transition-transform ${
-                    newColor === c ? 'scale-125 ring-2 ring-indigo-500 dark:ring-white/60' : 'opacity-70 hover:opacity-100'
+                  className={`w-7 h-7 rounded-full ${colorStyles[c].dot} transition-transform active:scale-90 flex items-center justify-center ${
+                    newColor === c ? 'scale-115 ring-2 ring-indigo-500 dark:ring-white/80' : 'opacity-70 hover:opacity-100'
                   }`}
                   title={colorStyles[c].label}
+                  aria-label={colorStyles[c].label}
                 />
               ))}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setIsCreating(false)}
-                className="px-2.5 py-1 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+                className="min-h-[40px] px-3.5 py-1.5 text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
               >
                 Annuler
               </button>
               <button
                 type="submit"
-                className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium"
+                className="min-h-[40px] px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-xl font-semibold text-xs transition-all active:scale-95 shadow-sm"
               >
-                Enregistrer
+                Enregistrer la note
               </button>
             </div>
           </div>
@@ -217,115 +223,124 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
 
       {/* Notes Content */}
       {sortedNotes.length === 0 ? (
-        <div className="text-center py-10 px-4 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg">
-          <StickyNote className="w-8 h-8 text-zinc-400 dark:text-zinc-600 mx-auto mb-2" />
-          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Aucune note pour l'instant</p>
-          <p className="text-xs text-zinc-500 mt-1">Créez votre première note rapide ci-dessus.</p>
+        <div className="text-center py-10 px-4 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl">
+          <StickyNote className="w-10 h-10 text-zinc-400 dark:text-zinc-600 mx-auto mb-2" />
+          <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Aucune note pour le moment</p>
+          <p className="text-xs text-zinc-500 mt-1">Créez votre première note rapide pour stocker vos idées.</p>
         </div>
       ) : localDisplayMode === 'cards' ? (
         /* MODÈLE CARTES */
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto max-h-[460px] pr-1 flex-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto max-h-[500px] pr-0.5 flex-1">
           {sortedNotes.map((note) => {
-            const style = colorStyles[note.color] || colorStyles.zinc;
+            const style = colorStyles[note.color] || colorStyles.blue;
             const isEditing = editingNoteId === note.id;
 
             return (
               <div
                 key={note.id}
-                className={`${style.bg} ${style.border} border rounded-xl p-3.5 flex flex-col justify-between transition-all duration-150 shadow-xs relative group`}
+                className={`${style.bg} ${style.border} border rounded-2xl p-4 flex flex-col justify-between transition-all duration-150 shadow-sm relative`}
               >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                        className="bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-xs font-semibold text-zinc-900 dark:text-white px-2 py-0.5 rounded w-full focus:outline-none"
-                      />
-                    ) : (
-                      <h3 className="text-sm font-semibold text-zinc-900 dark:text-white tracking-tight truncate flex-1">
-                        {note.title}
-                      </h3>
-                    )}
-
-                    <div className="flex items-center gap-1 shrink-0">
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2.5 py-1.5 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none"
+                    />
+                    <textarea
+                      rows={3}
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-800 dark:text-zinc-200 focus:outline-none resize-none"
+                    />
+                    <div className="flex justify-end gap-2 pt-1">
                       <button
-                        onClick={() => onTogglePin(note.id)}
-                        className={`p-1 rounded transition-colors ${
-                          note.isPinned 
-                            ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-500/15' 
-                            : 'text-zinc-400 hover:text-zinc-700 dark:text-zinc-600 dark:hover:text-zinc-300'
-                        }`}
-                        title={note.isPinned ? 'Détacher' : 'Épingler en haut'}
+                        onClick={() => setEditingNoteId(null)}
+                        className="min-h-[36px] px-3 py-1 text-xs text-zinc-500"
                       >
-                        <Pin className="w-3.5 h-3.5" />
+                        Annuler
                       </button>
-
                       <button
-                        onClick={() => onDeleteNote(note.id)}
-                        className="p-1 text-zinc-400 hover:text-red-500 dark:text-zinc-600 dark:hover:text-red-400 rounded transition-colors"
-                        title="Supprimer la note"
+                        onClick={() => handleSaveEdit(note.id)}
+                        className="min-h-[36px] px-3.5 py-1 text-xs font-semibold bg-indigo-600 text-white rounded-lg active:scale-95"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        Sauvegarder
                       </button>
                     </div>
                   </div>
-
-                  {isEditing ? (
-                    <div className="space-y-2 mt-2">
-                      <textarea
-                        rows={3}
-                        value={editContent}
-                        onChange={(e) => setEditContent(e.target.value)}
-                        className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-xs text-zinc-800 dark:text-zinc-200 px-2 py-1 rounded resize-none focus:outline-none"
-                      />
-                      <div className="flex justify-end gap-1.5">
+                ) : (
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-2.5 h-2.5 rounded-full ${style.dot}`} />
+                        <span className="text-[11px] font-semibold text-zinc-500 capitalize">
+                          {style.label}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
                         <button
-                          onClick={() => setEditingNoteId(null)}
-                          className="px-2 py-0.5 text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+                          onClick={() => onTogglePin(note.id)}
+                          className={`min-w-[36px] min-h-[36px] flex items-center justify-center transition-colors ${
+                            note.isPinned
+                              ? 'text-indigo-600 dark:text-indigo-400'
+                              : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+                          }`}
+                          title={note.isPinned ? 'Détacher' : 'Épingler'}
+                          aria-label="Épingler"
                         >
-                          Annuler
+                          <Pin className={`w-4 h-4 ${note.isPinned ? 'fill-current' : ''}`} />
                         </button>
                         <button
-                          onClick={() => handleSaveEdit(note.id)}
-                          className="px-2.5 py-0.5 text-xs bg-indigo-600 text-white rounded font-medium"
+                          onClick={() => onDeleteNote(note.id)}
+                          className="min-w-[36px] min-h-[36px] flex items-center justify-center text-zinc-400 hover:text-red-500 transition-colors"
+                          title="Supprimer la note"
+                          aria-label="Supprimer la note"
                         >
-                          OK
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
-                  ) : (
-                    <p
+
+                    <h3 
                       onClick={() => handleStartEdit(note)}
-                      className="text-xs text-zinc-700 dark:text-zinc-300 whitespace-pre-line leading-relaxed mt-1 cursor-pointer hover:text-zinc-900 dark:hover:text-white transition-colors"
-                      title="Cliquer pour modifier"
+                      className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white tracking-tight cursor-pointer leading-snug"
                     >
-                      {note.content || '(Note vide. Cliquez pour écrire...)'}
+                      {note.title}
+                    </h3>
+
+                    <p 
+                      onClick={() => handleStartEdit(note)}
+                      className="text-xs text-zinc-600 dark:text-zinc-300 mt-1.5 whitespace-pre-wrap leading-relaxed cursor-pointer line-clamp-4"
+                    >
+                      {note.content}
                     </p>
-                  )}
-                </div>
+                  </div>
+                )}
 
-                <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-zinc-200/60 dark:border-white/5 text-[11px] text-zinc-500">
-                  <span className="font-mono tabular-nums">{note.updatedAt}</span>
+                <div className="flex items-center justify-between pt-3 mt-3 border-t border-zinc-200/60 dark:border-zinc-800/60 text-xs">
+                  <span className="text-zinc-400 text-[11px]">
+                    {note.updatedAt}
+                  </span>
 
-                  <button
-                    onClick={() => handleCopy(note.id, `${note.title}\n\n${note.content}`)}
-                    className="flex items-center gap-1 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
-                    title="Copier le texte"
-                  >
-                    {copiedId === note.id ? (
-                      <>
-                        <Check className="w-3 h-3 text-emerald-500" />
-                        <span className="text-emerald-600 dark:text-emerald-400 text-[10px]">Copié</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3" />
-                        <span className="text-[10px]">Copier</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleCopy(note.id, `${note.title}\n\n${note.content}`)}
+                      className="min-h-[36px] px-2.5 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded-lg flex items-center gap-1.5 transition-colors active:scale-95"
+                    >
+                      {copiedId === note.id ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          <span className="text-emerald-500 font-semibold">Copié !</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copier</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -333,55 +348,51 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
         </div>
       ) : (
         /* MODE LISTE */
-        <div className="space-y-2 overflow-y-auto max-h-[460px] pr-1 flex-1">
+        <div className="space-y-2 overflow-y-auto max-h-[500px] pr-0.5">
           {sortedNotes.map((note) => {
-            const style = colorStyles[note.color] || colorStyles.zinc;
+            const style = colorStyles[note.color] || colorStyles.blue;
             return (
               <div
                 key={note.id}
-                className="p-3 bg-zinc-50/80 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700/80 rounded-lg flex items-center justify-between gap-3 transition-colors shadow-xs"
+                className={`p-3.5 ${style.bg} ${style.border} border rounded-xl flex items-center justify-between gap-3 transition-colors shadow-sm`}
               >
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <span className={`w-2 h-2 rounded-full ${style.dot} shrink-0`}></span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-semibold text-zinc-900 dark:text-white truncate">
-                        {note.title}
-                      </h4>
-                      {note.isPinned && (
-                        <span className="text-[10px] text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded font-medium">
-                          Épinglé
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
-                      {note.content}
-                    </p>
+                <div 
+                  className="min-w-0 flex-1 cursor-pointer"
+                  onClick={() => handleStartEdit(note)}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${style.dot} shrink-0`} />
+                    <h3 className="text-sm font-bold text-zinc-900 dark:text-white truncate">
+                      {note.title}
+                    </h3>
+                    {note.isPinned && (
+                      <Pin className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 fill-current shrink-0" />
+                    )}
                   </div>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400 truncate mt-0.5">
+                    {note.content}
+                  </p>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 text-xs text-zinc-500">
-                  <span className="font-mono tabular-nums text-[11px] hidden sm:inline">{note.updatedAt}</span>
-                  <button
-                    onClick={() => onTogglePin(note.id)}
-                    className={`p-1 rounded ${note.isPinned ? 'text-indigo-600' : 'text-zinc-400 hover:text-zinc-600'}`}
-                    title={note.isPinned ? 'Détacher' : 'Épingler'}
-                  >
-                    <Pin className="w-3.5 h-3.5" />
-                  </button>
+                <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => handleCopy(note.id, `${note.title}\n\n${note.content}`)}
-                    className="p-1 text-zinc-400 hover:text-zinc-600"
-                    title="Copier"
+                    className="min-w-[40px] min-h-[40px] flex items-center justify-center text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-lg active:scale-95"
+                    title="Copier le contenu"
                   >
-                    {copiedId === note.id ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedId === note.id ? (
+                      <Check className="w-4 h-4 text-emerald-500" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
                   </button>
+
                   <button
                     onClick={() => onDeleteNote(note.id)}
-                    className="p-1 text-zinc-400 hover:text-red-500"
-                    title="Supprimer"
+                    className="min-w-[40px] min-h-[40px] flex items-center justify-center text-zinc-400 hover:text-red-500 dark:text-zinc-500 dark:hover:text-red-400 rounded-lg active:scale-95"
+                    title="Supprimer la note"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
