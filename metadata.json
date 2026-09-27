@@ -1,0 +1,6 @@
+{
+  "name": "Espace Numérique Quotidien",
+  "description": "Tableau de bord personnel pour la gestion des activités numériques : suivi de projets, tâches prioritaires, liens utiles et bloc-notes rapide avec sauvegarde locale.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
