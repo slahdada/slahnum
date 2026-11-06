@@ -18,7 +18,7 @@ import {
   Database 
 } from 'lucide-react';
 import { DisplayMode, ThemeMode } from '../types';
-import { ActionMenu } from './ActionMenu';
+import { ActionMenu, ActionMenuItem } from './ActionMenu';
 import { User } from 'firebase/auth';
 import { SyncStatus } from '../services/cloudSync';
 import { LogIn, User as UserIcon, Cloud, CloudOff, RefreshCw } from 'lucide-react';
@@ -83,6 +83,42 @@ export const Header: React.FC<HeaderProps> = ({
     const interval = setInterval(updateDateTime, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const mobileMenuItems: ActionMenuItem[] = [];
+  if (!isInstalled && onInstallApp) {
+    mobileMenuItems.push({
+      label: "Installer l'application (PWA)",
+      icon: <Smartphone className="w-4 h-4 text-emerald-500" />,
+      onClick: onInstallApp,
+      variant: 'primary'
+    });
+  }
+  mobileMenuItems.push({
+    label: user ? `Mon compte (${user.email})` : 'Se connecter / Créer un compte',
+    icon: user ? <UserIcon className="w-4 h-4 text-indigo-500" /> : <LogIn className="w-4 h-4 text-indigo-500" />,
+    onClick: user ? onOpenUserProfile : onOpenAuthModal,
+    variant: (!isInstalled && onInstallApp ? 'default' : 'primary')
+  });
+  mobileMenuItems.push({
+    label: 'Importer des fichiers (CSV / JSON)',
+    icon: <Upload className="w-4 h-4 text-indigo-500" />,
+    onClick: onOpenImportModal
+  });
+  mobileMenuItems.push({
+    label: 'Exporter & Sauvegarder',
+    icon: <Download className="w-4 h-4 text-emerald-500" />,
+    onClick: onOpenExportModal
+  });
+  mobileMenuItems.push({
+    label: displayMode === 'cards' ? 'Passer en Mode Liste' : 'Passer en Modèle Cartes',
+    icon: displayMode === 'cards' ? <List className="w-4 h-4 text-zinc-500" /> : <LayoutGrid className="w-4 h-4 text-zinc-500" />,
+    onClick: onToggleDisplayMode
+  });
+  mobileMenuItems.push({
+    label: theme === 'dark' ? 'Activer le Thème Clair' : 'Activer le Thème Sombre',
+    icon: theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-zinc-400" />,
+    onClick: onToggleTheme
+  });
 
   return (
     <header className="border-b border-zinc-200 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-950/95 sticky top-0 z-30 backdrop-blur-md transition-colors duration-200 pt-[env(safe-area-inset-top,0px)]">
@@ -224,12 +260,12 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             {/* PWA INSTALL BUTTON */}
-            {isInstallable && !isInstalled && onInstallApp && (
+            {!isInstalled && onInstallApp && (
               <button
                 onClick={onInstallApp}
                 aria-label="Installer l'application"
-                className="min-w-[40px] min-h-[40px] px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 active:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5 shrink-0 transition-transform active:scale-95"
-                title="Installer sur l'écran d'accueil"
+                className="min-w-[40px] min-h-[40px] px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5 shrink-0 transition-all active:scale-95 cursor-pointer"
+                title="Installer sur l'écran d'accueil (PWA)"
               >
                 <Smartphone className="w-4 h-4" />
                 <span className="hidden md:inline">Installer</span>
@@ -337,34 +373,7 @@ export const Header: React.FC<HeaderProps> = ({
               <ActionMenu
                 title="Options Espace Num"
                 subtitle="Gestion globale & Préférences"
-                items={[
-                  {
-                    label: user ? `Mon compte (${user.email})` : 'Se connecter / Créer un compte',
-                    icon: user ? <UserIcon className="w-4 h-4 text-indigo-500" /> : <LogIn className="w-4 h-4 text-indigo-500" />,
-                    onClick: user ? onOpenUserProfile : onOpenAuthModal,
-                    variant: 'primary'
-                  },
-                  {
-                    label: 'Importer des fichiers (CSV / JSON)',
-                    icon: <Upload className="w-4 h-4 text-indigo-500" />,
-                    onClick: onOpenImportModal
-                  },
-                  {
-                    label: 'Exporter & Sauvegarder',
-                    icon: <Download className="w-4 h-4 text-emerald-500" />,
-                    onClick: onOpenExportModal
-                  },
-                  {
-                    label: displayMode === 'cards' ? 'Passer en Mode Liste' : 'Passer en Modèle Cartes',
-                    icon: displayMode === 'cards' ? <List className="w-4 h-4 text-zinc-500" /> : <LayoutGrid className="w-4 h-4 text-zinc-500" />,
-                    onClick: onToggleDisplayMode
-                  },
-                  {
-                    label: theme === 'dark' ? 'Activer le Thème Clair' : 'Activer le Thème Sombre',
-                    icon: theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-zinc-400" />,
-                    onClick: onToggleTheme
-                  }
-                ]}
+                items={mobileMenuItems}
               />
             </div>
 

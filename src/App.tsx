@@ -38,6 +38,9 @@ import { EditNoteModal } from './components/EditNoteModal';
 import { AuthModal } from './components/AuthModal';
 import { UserProfileMenu } from './components/UserProfileMenu';
 import { DataMigrationModal } from './components/DataMigrationModal';
+import { PWAInstallModal } from './components/PWAInstallModal';
+import { PWAInstallBanner } from './components/PWAInstallBanner';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { downloadDataUrl } from './utils/fileHelpers';
 import { useFullscreen } from './hooks/useFullscreen';
 import { usePWAInstall } from './hooks/usePWAInstall';
@@ -68,7 +71,6 @@ export default function App() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importTargetCategory, setImportTargetCategory] = useState<'all' | 'addressBook' | 'projects' | 'links' | 'notes'>('all');
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
-  const [showIOSGuide, setShowIOSGuide] = useState(false);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
   // Intelligent Global Search State & Direct Inspect/Edit Modals
@@ -93,6 +95,7 @@ export default function App() {
         // Check for local data migration if this user hasn't been prompted yet
         const localData = loadStoredData();
         const hasLocalData = 
+          (localData.addressBook && localData.addressBook.length > 0) ||
           localData.tasks.length > 0 || 
           localData.projects.length > 0 || 
           localData.links.length > 0 || 
@@ -183,7 +186,16 @@ export default function App() {
   const { isFullscreen, toggleFullscreen } = useFullscreen();
 
   // PWA Install hook
-  const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
+  const { 
+    isInstallable, 
+    isInstalled, 
+    isIOS, 
+    isAndroid, 
+    isInstallModalOpen, 
+    openInstallModal, 
+    closeInstallModal, 
+    install 
+  } = usePWAInstall();
 
   // Theme state: 'dark' | 'light'
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -318,9 +330,12 @@ export default function App() {
 
   const handleInstallClick = async () => {
     if (isInstallable) {
-      await install();
-    } else if (isIOS) {
-      setShowIOSGuide(true);
+      const outcome = await install();
+      if (!outcome) {
+        openInstallModal();
+      }
+    } else {
+      openInstallModal();
     }
   };
 
@@ -622,13 +637,21 @@ export default function App() {
         onQuickNewItem={() => setIsQuickAddOpen(true)}
         isFullscreen={isFullscreen}
         onToggleFullscreen={toggleFullscreen}
-        isInstallable={isInstallable || isIOS}
+        isInstallable={isInstallable}
         onInstallApp={handleInstallClick}
         isInstalled={isInstalled}
         user={currentUser}
         syncStatus={syncStatus}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onOpenUserProfile={() => setIsUserProfileOpen(true)}
+      />
+
+      {/* Discreet PWA Install Banner */}
+      <PWAInstallBanner
+        isInstalled={isInstalled}
+        isInstallable={isInstallable}
+        onOpenInstallModal={openInstallModal}
+        onDirectInstall={install}
       />
 
       {/* Main Container - Optimized for mobile width with adequate bottom spacing for Thumb Nav */}
@@ -836,6 +859,9 @@ export default function App() {
         onDismiss={handleDismissToast}
       />
 
+      {/* Floating Offline Status Indicator */}
+      <OfflineIndicator />
+
       {/* Intelligent Global Search Modal */}
       <GlobalSearchModal
         isOpen={isGlobalSearchOpen}
@@ -999,17 +1025,25 @@ export default function App() {
           onClose={() => setIsUserProfileOpen(false)}
           user={currentUser}
           syncStatus={syncStatus}
-          onManualSync={() => {
-            setSyncStatus('syncing');
-            setTimeout(() => {
-              setSyncStatus(navigator.onLine ? 'synced' : 'offline');
-              handleNotify('Synchronisation actualisée', 'success');
-            }, 500);
+          onManualSync={async () => {
+            if (!currentUser) return;
+            try {
+              setSyncStatus('syncing');
+              await uploadLocalDataToCloud(currentUser.uid, data);
+              setSyncStatus('synced');
+              handleNotify('Synchronisation Cloud réussie', 'success');
+            } catch (err) {
+              console.error('Erreur sync manuelle:', err);
+              setSyncStatus(navigator.onLine ? 'error' : 'offline');
+              handleNotify('Erreur lors de la synchronisation cloud', 'error');
+            }
           }}
           onExportBackup={() => {
             exportDataAsJson(data);
             handleNotify('Sauvegarde JSON générée et téléchargée', 'success');
           }}
+          isInstalled={isInstalled}
+          onOpenInstallModal={openInstallModal}
           onNotify={handleNotify}
         />
       )}
@@ -1032,28 +1066,15 @@ export default function App() {
         />
       )}
 
-      {/* iOS Installation Guide Popup */}
-      {showIOSGuide && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-zinc-900 p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
-              <span className="text-2xl font-bold">📲</span>
-            </div>
-            <h3 className="text-base font-bold text-zinc-900 dark:text-white">Installer sur votre écran d'accueil</h3>
-            <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed text-left bg-zinc-50 dark:bg-zinc-950 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800">
-              1. Appuyez sur le bouton <strong>Partager</strong> dans Safari (icône carré avec flèche vers le haut).<br />
-              2. Faites défiler et appuyez sur <strong>Sur l'écran d'accueil</strong>.<br />
-              3. Validez en appuyant sur <strong>Ajouter</strong>.
-            </p>
-            <button
-              onClick={() => setShowIOSGuide(false)}
-              className="w-full min-h-[44px] rounded-xl bg-indigo-600 active:bg-indigo-700 text-white text-xs font-semibold shadow-sm"
-            >
-              Fermer
-            </button>
-          </div>
-        </div>
-      )}
+      {/* PWA Universal Guided Install Modal */}
+      <PWAInstallModal
+        isOpen={isInstallModalOpen}
+        onClose={closeInstallModal}
+        isInstallable={isInstallable}
+        isIOS={isIOS}
+        isAndroid={isAndroid}
+        onInstall={install}
+      />
     </div>
   );
 }

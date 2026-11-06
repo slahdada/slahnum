@@ -150,11 +150,28 @@ export function subscribeToUserCloudData(
 }
 
 /**
+ * Recursively cleans an object to strip undefined properties which are unsupported by Firestore SDK.
+ */
+function cleanForFirestore<T extends Record<string, any>>(obj: T): Record<string, any> {
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+        clean[key] = cleanForFirestore(value);
+      } else {
+        clean[key] = value;
+      }
+    }
+  }
+  return clean;
+}
+
+/**
  * Saves/updates a single address entry in Firestore
  */
 export async function saveAddressEntryToCloud(userId: string, entry: AddressEntry): Promise<void> {
   const entryRef = doc(db, 'users', userId, 'addressBook', entry.id);
-  await setDoc(entryRef, entry, { merge: true });
+  await setDoc(entryRef, cleanForFirestore(entry), { merge: true });
 }
 
 /**
@@ -170,7 +187,7 @@ export async function deleteAddressEntryFromCloud(userId: string, entryId: strin
  */
 export async function saveTaskToCloud(userId: string, task: Task): Promise<void> {
   const taskRef = doc(db, 'users', userId, 'tasks', task.id);
-  await setDoc(taskRef, task, { merge: true });
+  await setDoc(taskRef, cleanForFirestore(task), { merge: true });
 }
 
 /**
@@ -186,7 +203,7 @@ export async function deleteTaskFromCloud(userId: string, taskId: string): Promi
  */
 export async function saveProjectToCloud(userId: string, project: Project): Promise<void> {
   const projRef = doc(db, 'users', userId, 'projects', project.id);
-  await setDoc(projRef, project, { merge: true });
+  await setDoc(projRef, cleanForFirestore(project), { merge: true });
 }
 
 /**
@@ -202,7 +219,7 @@ export async function deleteProjectFromCloud(userId: string, projectId: string):
  */
 export async function saveLinkToCloud(userId: string, link: ResourceLink): Promise<void> {
   const linkRef = doc(db, 'users', userId, 'links', link.id);
-  await setDoc(linkRef, link, { merge: true });
+  await setDoc(linkRef, cleanForFirestore(link), { merge: true });
 }
 
 /**
@@ -218,7 +235,7 @@ export async function deleteLinkFromCloud(userId: string, linkId: string): Promi
  */
 export async function saveNoteToCloud(userId: string, note: QuickNote): Promise<void> {
   const noteRef = doc(db, 'users', userId, 'notes', note.id);
-  await setDoc(noteRef, note, { merge: true });
+  await setDoc(noteRef, cleanForFirestore(note), { merge: true });
 }
 
 /**
@@ -234,9 +251,27 @@ export async function deleteNoteFromCloud(userId: string, noteId: string): Promi
  */
 export async function checkUserCloudDataExists(userId: string): Promise<boolean> {
   try {
+    const addressRef = collection(db, 'users', userId, 'addressBook');
     const tasksRef = collection(db, 'users', userId, 'tasks');
-    const snap = await getDocs(query(tasksRef));
-    return !snap.empty;
+    const projectsRef = collection(db, 'users', userId, 'projects');
+    const linksRef = collection(db, 'users', userId, 'links');
+    const notesRef = collection(db, 'users', userId, 'notes');
+
+    const [snapAddr, snapTasks, snapProj, snapLinks, snapNotes] = await Promise.all([
+      getDocs(query(addressRef)),
+      getDocs(query(tasksRef)),
+      getDocs(query(projectsRef)),
+      getDocs(query(linksRef)),
+      getDocs(query(notesRef))
+    ]);
+
+    return (
+      !snapAddr.empty ||
+      !snapTasks.empty ||
+      !snapProj.empty ||
+      !snapLinks.empty ||
+      !snapNotes.empty
+    );
   } catch (e) {
     console.error('Erreur vérification données cloud:', e);
     return false;
@@ -281,7 +316,7 @@ export async function uploadLocalDataToCloud(
     const chunk = addressBook.slice(i, i + 400);
     chunk.forEach(entry => {
       const ref = doc(db, 'users', userId, 'addressBook', entry.id);
-      batch.set(ref, entry, { merge: true });
+      batch.set(ref, cleanForFirestore(entry), { merge: true });
       updateProgress();
     });
     await batch.commit();
@@ -293,7 +328,7 @@ export async function uploadLocalDataToCloud(
     const chunk = tasks.slice(i, i + 400);
     chunk.forEach(t => {
       const ref = doc(db, 'users', userId, 'tasks', t.id);
-      batch.set(ref, t, { merge: true });
+      batch.set(ref, cleanForFirestore(t), { merge: true });
       updateProgress();
     });
     await batch.commit();
@@ -305,7 +340,7 @@ export async function uploadLocalDataToCloud(
     const chunk = projects.slice(i, i + 400);
     chunk.forEach(p => {
       const ref = doc(db, 'users', userId, 'projects', p.id);
-      batch.set(ref, p, { merge: true });
+      batch.set(ref, cleanForFirestore(p), { merge: true });
       updateProgress();
     });
     await batch.commit();
@@ -317,7 +352,7 @@ export async function uploadLocalDataToCloud(
     const chunk = links.slice(i, i + 400);
     chunk.forEach(l => {
       const ref = doc(db, 'users', userId, 'links', l.id);
-      batch.set(ref, l, { merge: true });
+      batch.set(ref, cleanForFirestore(l), { merge: true });
       updateProgress();
     });
     await batch.commit();
@@ -329,7 +364,7 @@ export async function uploadLocalDataToCloud(
     const chunk = notes.slice(i, i + 400);
     chunk.forEach(n => {
       const ref = doc(db, 'users', userId, 'notes', n.id);
-      batch.set(ref, n, { merge: true });
+      batch.set(ref, cleanForFirestore(n), { merge: true });
       updateProgress();
     });
     await batch.commit();

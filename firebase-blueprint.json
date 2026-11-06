@@ -13,6 +13,21 @@
       },
       "required": ["uid", "email"]
     },
+    "AddressEntry": {
+      "title": "AddressEntry",
+      "description": "Entrée du carnet d'adresses personnel",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "key": { "type": "string" },
+        "nature": { "type": "string" },
+        "notification": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "createdAt"]
+    },
     "Task": {
       "title": "Task",
       "description": "Tâche personnelle de l'utilisateur",
@@ -82,6 +97,10 @@
     "/users/{userId}": {
       "schema": "User",
       "description": "Profil du compte utilisateur"
+    },
+    "/users/{userId}/addressBook/{entryId}": {
+      "schema": "AddressEntry",
+      "description": "Collection du carnet d'adresses personnel"
     },
     "/users/{userId}/tasks/{taskId}": {
       "schema": "Task",

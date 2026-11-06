@@ -35,7 +35,9 @@ export const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
 
   if (!isOpen) return null;
 
+  const addressCount = (localData.addressBook || []).length;
   const totalItems = 
+    addressCount +
     localData.tasks.length + 
     localData.projects.length + 
     localData.links.length + 
@@ -112,7 +114,7 @@ export const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
             </p>
             <div className="grid grid-cols-2 gap-2 text-xs text-zinc-600 dark:text-zinc-400 pt-1">
               <div className="bg-white dark:bg-zinc-900 p-2 rounded-lg border border-zinc-200 dark:border-zinc-800">
-                • <strong>{localData.tasks.length}</strong> tâches
+                • <strong>{addressCount}</strong> carnet d’adresses
               </div>
               <div className="bg-white dark:bg-zinc-900 p-2 rounded-lg border border-zinc-200 dark:border-zinc-800">
                 • <strong>{localData.projects.length}</strong> projets

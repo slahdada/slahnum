@@ -23,6 +23,8 @@ interface UserProfileMenuProps {
   syncStatus: SyncStatus;
   onManualSync: () => void;
   onExportBackup: () => void;
+  isInstalled?: boolean;
+  onOpenInstallModal?: () => void;
   onNotify: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
 
@@ -33,6 +35,8 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
   syncStatus,
   onManualSync,
   onExportBackup,
+  isInstalled = false,
+  onOpenInstallModal,
   onNotify
 }) => {
   const [isResettingPass, setIsResettingPass] = useState(false);
@@ -163,6 +167,25 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
               <span>Sauvegarder mes données (JSON)</span>
             </div>
           </button>
+
+          {/* PWA Install Link */}
+          {!isInstalled && onOpenInstallModal && (
+            <button
+              onClick={() => {
+                onOpenInstallModal();
+                onClose();
+              }}
+              className="w-full p-2.5 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 flex items-center justify-between text-xs font-semibold transition-colors"
+            >
+              <div className="flex items-center gap-2.5">
+                <Smartphone className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span>Installer sur cet appareil (PWA)</span>
+              </div>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-indigo-600/15 text-indigo-600 dark:text-indigo-400">
+                App
+              </span>
+            </button>
+          )}
 
           {/* Reset / Change Password */}
           <button
